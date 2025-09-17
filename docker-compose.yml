@@ -28,6 +28,8 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING}
     ports: ["8000:8000"]
+    volumes:
+      - django:/code
 
 
   func:
@@ -40,3 +42,4 @@ services:
 
 volumes:
   azurite_data:
+  django:

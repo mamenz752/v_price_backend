@@ -1,0 +1,42 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:15
+    volumes:
+      - ./db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports: ["5432:5432"]
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0"
+    ports:
+      - "10000:10000"   # Blob
+      - "10001:10001"   # Queue
+      - "10002:10002"   # Table
+    volumes:
+      - azurite_data:/data
+
+  web:
+    build: ./django
+    command: sh -c "sleep 5 && python manage.py runserver 0.0.0.0:8000"
+    depends_on: [db, azurite]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING}
+    ports: ["8000:8000"]
+
+
+  func:
+    build: ./functions
+    depends_on: [db, azurite]
+    environment:
+      AzureWebJobsStorage: ${AZURE_STORAGE_CONNECTION_STRING}
+      PG_CONN: host=db port=5432 dbname=${POSTGRES_DB} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD}
+    ports: ["7071:7071"]
+
+volumes:
+  azurite_data:

@@ -2,3 +2,5 @@ Django>=4.2
 psycopg2-binary>=2.9
 django-allauth==0.60.1
 django-bootstrap5==23.3
+django-storages
+azure-storage-blob

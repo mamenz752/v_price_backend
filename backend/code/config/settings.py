@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,6 +25,20 @@ SECRET_KEY = 'django-insecure-xa7o_f7r7bd@0+e%z)ls+hhxm(0g+j!raa=2#4i(#c@*0zqh5^
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
+# Azure Storage settings
+AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME", "devstoreaccount1")
+AZURE_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "media")
+
+AZURE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
+
+DEFAULT_FILE_STORAGE = "storages.backends.azure_storage.AzureStorage"
+
+AZURE_ACCOUNT_KEY = os.getenv("AZURE_ACCOUNT_KEY", "")  # conn strを優先するので空でもOK
+AZURE_SSL = False  # Azuriteはhttpで十分（httpsにすると繋がらないことが多い）
+AZURE_URL_EXPIRATION_SECS = 3600  # 署名URL有効時間（必要に応じて）
+AZURE_OVERWRITE_FILES = False
+
 
 ALLOWED_HOSTS = []
 

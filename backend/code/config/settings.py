@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     "storages",
 
+    'accounts.apps.AccountsConfig',
     'ingest.apps.IngestConfig'
 ]
 

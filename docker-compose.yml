@@ -15,16 +15,18 @@ services:
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite:latest
     command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0"
-    ports:
-      - "10000:10000"   # Blob
-      - "10001:10001"   # Queue
-      - "10002:10002"   # Table
+    ports: ["10000:10000", "10001:10001", "10002:10002"]
     volumes:
-      - ./data:/azurite_data
+      - ./data:/azdata
 
   web:
     build: ./backend
-    command: sh -c "sleep 5 && python manage.py runserver 0.0.0.0:8000"
+    command: >
+      sh -c "sleep 5 &&
+            python manage.py wait_for_azurite &&
+            python manage.py init_azurite &&
+            python manage.py seed_blobs ./data &&
+            python manage.py runserver 0.0.0.0:8000"
     depends_on: [db, azurite]
     environment:
       # DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -33,17 +35,19 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
-      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING}
+      AZURE_CONNECTION_STRING: ${AZURE_CONNECTION_STRING}
+      AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER}
     ports: ["8000:8000"]
     volumes:
       - ./backend/code:/code
+      - ./data:/data:ro
 
 
   func:
     build: ./functions
     depends_on: [db, azurite]
     environment:
-      AzureWebJobsStorage: ${AZURE_STORAGE_CONNECTION_STRING}
+      AzureWebJobsStorage: ${AZURE_CONNECTION_STRING}
       PG_CONN: host=db port=5432 dbname=${POSTGRES_DB} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD}
     ports: ["7071:7071"]
 

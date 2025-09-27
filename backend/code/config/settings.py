@@ -26,11 +26,14 @@ SECRET_KEY = 'django-insecure-xa7o_f7r7bd@0+e%z)ls+hhxm(0g+j!raa=2#4i(#c@*0zqh5^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# Azure Storage settings
-AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME", "devstoreaccount1")
-AZURE_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "media")
+INGEST_ROOT = os.getenv("INGEST_ROOT", "/data/ingest")
+INGEST_PREFIX = os.getenv("INGEST_PREFIX", "txt/")
 
-AZURE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
+# Azure Storage settingsz
+AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME", "devstoreaccount1")
+AZURE_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "container")
+
+AZURE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING", "")
 
 DEFAULT_FILE_STORAGE = "storages.backends.azure_storage.AzureStorage"
 
@@ -40,7 +43,7 @@ AZURE_URL_EXPIRATION_SECS = 3600  # 署名URL有効時間（必要に応じて�
 AZURE_OVERWRITE_FILES = False
 
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition

@@ -178,9 +178,9 @@ class VegetableAdmin(admin.ModelAdmin):
 
 @admin.register(Region)
 class RegionAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "price_code", "weather_code")
+    list_display = ("id", "name", "p_area_code", "market_code", "fuken_code", "station_code")
     readonly_fields = ("id",)
-    fields = ("name", "price_code", "weather_code")
+    fields = ("name", "p_area_code", "market_code", "fuken_code", "station_code")
 
 # カスタム管理サイトを作成し、全データインポート用のビューを追加
 class IngestAdminSite(admin.AdminSite):

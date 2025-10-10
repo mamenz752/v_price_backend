@@ -29,14 +29,14 @@ class Command(BaseCommand):
             
         # 野菜データのリスト
         vegetables = [
-            {'name': 'キャベツ', 'code': 31700},
-            {'name': 'はくさい', 'code': 31100},
-            {'name': 'だいこん', 'code': 30100},
-            {'name': 'たまねぎ', 'code': 36600},
-            {'name': 'ばれいしょ', 'code': 36200},
-            {'name': 'トマト', 'code': 34400},
-            {'name': 'なす', 'code': 34300},
-            {'name': 'きゅうり', 'code': 34100},
+            {'name': 'キャベツ', 'code': '31700'},
+            {'name': 'はくさい', 'code': '31100'},
+            {'name': 'だいこん', 'code': '30100'},
+            {'name': 'たまねぎ', 'code': '36600'},
+            {'name': 'ばれいしょ', 'code': '36200'},
+            {'name': 'トマト', 'code': '34400'},
+            {'name': 'なす', 'code': '34300'},
+            {'name': 'きゅうり', 'code': '34100'},
         ]
         
         # データの作成
@@ -56,14 +56,16 @@ class Command(BaseCommand):
             
         # 地域データのリスト
         regions = [
-            {'name': '広島', 'p_area_code': 034, 'market_code': 34300, 'fuken_code': 67, 'station_code': 47765},
+            {'name': '広島', 'p_area_code': '034', 'market_code': '34300', 'fuken_code': '67', 'station_code': '47765'},
         ]
         
         # データの作成
         for region_data in regions:
             Region.objects.create(
                 name=region_data['name'],
-                price_code=region_data['price_code'],
-                weather_code=region_data['weather_code']
+                p_area_code=region_data['p_area_code'],
+                market_code=region_data['market_code'],
+                fuken_code=region_data['fuken_code'],
+                station_code=region_data['station_code']
             )
             self.stdout.write(f'地域を登録しました: {region_data["name"]}')

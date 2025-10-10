@@ -1,0 +1,44 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+    <!-- データインポートボタン -->
+    <div class="module">
+        <table style="width:100%">
+            <caption>
+                <a href="#" class="section">{% trans 'データインポート' %}</a>
+            </caption>
+            <tbody>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin_import_all' %}" style="display:block; padding:10px; background-color:#79aec8; color:white; text-decoration:none; text-align:center; border-radius:4px; margin:10px 0;">
+                            全データをインポート
+                        </a>
+                    </th>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin:ingest_ingestmarket_import' %}" style="display:block; padding:10px; background-color:#79aec8; color:white; text-decoration:none; text-align:center; border-radius:4px; margin:10px 0;">
+                            野菜価格データをインポート
+                        </a>
+                    </th>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin:ingest_ingestweather_import' %}" style="display:block; padding:10px; background-color:#79aec8; color:white; text-decoration:none; text-align:center; border-radius:4px; margin:10px 0;">
+                            気象データをインポート
+                        </a>
+                    </th>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 標準の管理画面コンテンツ -->
+    {{ block.super }}
+</div>
+{% endblock %}

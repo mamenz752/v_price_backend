@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}全データ一括インポート{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">全データ一括インポート</h1>
+
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2 class="h5 mb-0">全データを一括インポート</h2>
+        </div>
+        <div class="card-body">
+            <p>これは全ての価格データと天気データを一括でインポートする機能です。処理が完了するまで時間がかかる場合があります。</p>
+            <p class="text-danger">注意: 実行する前に、野菜と地域のマスターデータが登録されていることを確認してください。</p>
+
+            <form method="post" action="{% url 'ingest:import_all' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">全データをインポート</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <a href="{% url 'ingest:index' %}" class="btn btn-secondary">戻る</a>
+    </div>
+</div>
+{% endblock %}

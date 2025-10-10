@@ -1,0 +1,120 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}">
+<style>
+    .results-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+    .results-table th, .results-table td {
+        padding: 8px;
+        border: 1px solid #ccc;
+        text-align: left;
+    }
+    .results-table th {
+        background-color: #f5f5f5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>{{ title }}</h1>
+    
+    {% if messages %}
+    <ul class="messagelist">
+        {% for message in messages %}
+        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    
+    {% if success %}
+    <div class="module">
+        <h2>インポート結果</h2>
+        
+        <div class="results">
+            <h3>価格データのインポート結果</h3>
+            {% if price_results %}
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>野菜名</th>
+                        <th>インポート件数</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vegetable_name, count in price_results.items %}
+                    <tr>
+                        <td>{{ vegetable_name }}</td>
+                        <td>{{ count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>インポートされた価格データはありません。</p>
+            {% endif %}
+            
+            <h3>天気データのインポート結果</h3>
+            {% if weather_results %}
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>地域名</th>
+                        <th>インポート件数</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for region_name, count in weather_results.items %}
+                    <tr>
+                        <td>{{ region_name }}</td>
+                        <td>{{ count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>インポートされた天気データはありません。</p>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="module">
+        <h2>全データインポート</h2>
+        <p>これは全ての価格データと天気データを一括でインポートする機能です。処理が完了するまで時間がかかる場合があります。</p>
+        <p class="warning">注意: 実行する前に、野菜と地域のマスターデータが登録されていることを確認してください。</p>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="submit-row">
+                <input type="submit" value="全データをインポート" class="default" name="_import_all" 
+                       style="padding: 15px; font-size: 16px; font-weight: bold;">
+            </div>
+        </form>
+    </div>
+    {% endif %}
+    
+    <div class="module">
+        <h2>ヘルプ</h2>
+        <p>インポートには以下のディレクトリが使用されます：</p>
+        <ul>
+            <li>価格データ: {{ settings.INGEST_ROOT }}/{{ settings.INGEST_PREFIX_PRICE }}</li>
+            <li>天気データ: {{ settings.INGEST_ROOT }}/{{ settings.INGEST_PREFIX_WEATHER }}</li>
+        </ul>
+    </div>
+    
+    <div class="module">
+        <h2>リンク</h2>
+        <ul>
+            <li><a href="{% url 'admin:ingest_ingestmarket_changelist' %}">価格データ一覧</a></li>
+            <li><a href="{% url 'admin:ingest_ingestweather_changelist' %}">天気データ一覧</a></li>
+            <li><a href="{% url 'admin:ingest_vegetable_changelist' %}">野菜マスター一覧</a></li>
+            <li><a href="{% url 'admin:ingest_region_changelist' %}">地域マスター一覧</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "admin/app_index.html" %}
+{% load i18n %}
+
+{% block sidebar %}
+{{ block.super }}
+<div class="module">
+    <h2>インポートアクション</h2>
+    <ul>
+        <li><a href="{% url 'admin:ingest_ingestmarket_import' %}">価格データをインポート</a></li>
+        <li><a href="{% url 'admin:ingest_ingestweather_import' %}">天気データをインポート</a></li>
+        <li><a href="{% url 'admin_import_all' %}">すべてのデータをインポート</a></li>
+    </ul>
+</div>
+{% endblock %}

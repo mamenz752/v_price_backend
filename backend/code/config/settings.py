@@ -26,18 +26,26 @@ SECRET_KEY = 'django-insecure-xa7o_f7r7bd@0+e%z)ls+hhxm(0g+j!raa=2#4i(#c@*0zqh5^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-INGEST_ROOT = os.getenv("INGEST_ROOT", "/data/ingest")
+INGEST_ROOT = os.getenv("INGEST_ROOT", "/data")
 INGEST_PREFIX_PRICE = os.getenv("INGEST_PREFIX_PRICE", "price/")
 INGEST_PREFIX_WEATHER = os.getenv("INGEST_PREFIX_WEATHER", "weather/")
 
-# Azure Storage settingsz
+# Azuriteを無効にするフラグ（マイグレーション専用）
+AZURE_DISABLE = os.environ.get('AZURE_DISABLE', 'False').lower() == 'true'
+
+# Azure Storage settings
 AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME", "devstoreaccount1")
 AZURE_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "container")
 
-AZURE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING", "")
-
-DEFAULT_FILE_STORAGE = "storages.backends.azure_storage.AzureStorage"
-
+if AZURE_DISABLE:
+    # Azuriteが無効の場合はダミー値を設定
+    AZURE_CONNECTION_STRING = "DefaultEndpointsProtocol=http;AccountName=dummy;AccountKey=dummy;BlobEndpoint=http://localhost:10000/devstoreaccount1;"
+    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+else:
+    # 通常の設定
+    AZURE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING", "")
+    DEFAULT_FILE_STORAGE = "storages.backends.azure_storage.AzureStorage"
+    
 AZURE_ACCOUNT_KEY = os.getenv("AZURE_ACCOUNT_KEY", "")  # conn strを優先するので空でもOK
 AZURE_SSL = False  # Azuriteはhttpで十分（httpsにすると繋がらないことが多い）
 AZURE_URL_EXPIRATION_SECS = 3600  # 署名URL有効時間（必要に応じて）
@@ -142,8 +150,16 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # 'static'から'staticfiles'に変更
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# 認証関連の設定
+LOGIN_URL = '/admin/login/'
+LOGIN_REDIRECT_URL = '/admin/'

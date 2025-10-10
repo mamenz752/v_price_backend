@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}インポート結果{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">インポート結果</h1>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2 class="h5 mb-0">価格データのインポート結果</h2>
+        </div>
+        <div class="card-body">
+            {% if price_results %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>野菜名</th>
+                        <th>インポート件数</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vegetable_name, count in price_results.items %}
+                    <tr>
+                        <td>{{ vegetable_name }}</td>
+                        <td>{{ count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>インポートされた価格データはありません。</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2 class="h5 mb-0">天気データのインポート結果</h2>
+        </div>
+        <div class="card-body">
+            {% if weather_results %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>地域名</th>
+                        <th>インポート件数</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for region_name, count in weather_results.items %}
+                    <tr>
+                        <td>{{ region_name }}</td>
+                        <td>{{ count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>インポートされた天気データはありません。</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <a href="{% url 'ingest:index' %}" class="btn btn-secondary">ホームに戻る</a>
+        <a href="{% url 'ingest:import_all' %}" class="btn btn-primary">もう一度実行</a>
+    </div>
+</div>
+{% endblock %}

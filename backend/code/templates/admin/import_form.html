@@ -1,0 +1,110 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}">
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>{{ title }}</h1>
+    
+    {% if messages %}
+    <ul class="messagelist">
+        {% for message in messages %}
+        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    
+    <form method="post" id="import_form">
+        {% csrf_token %}
+        
+        <fieldset class="module aligned">
+            <h2>インポート設定</h2>
+            
+            {% if is_price_import %}
+            <div class="form-row">
+                <div class="fieldBox">
+                    <label for="vegetable">野菜:</label>
+                    <select name="vegetable" id="vegetable" required>
+                        <option value="">選択してください</option>
+                        {% for vegetable in vegetables %}
+                        <option value="{{ vegetable.id }}">{{ vegetable.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if is_weather_import %}
+            <div class="form-row">
+                <div class="fieldBox">
+                    <label for="region">地域:</label>
+                    <select name="region" id="region" required>
+                        <option value="">選択してください</option>
+                        {% for region in regions %}
+                        <option value="{{ region.id }}">{{ region.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="form-row">
+                <div class="fieldBox">
+                    <label for="import_type">インポート種類:</label>
+                    <select name="import_type" id="import_type">
+                        <option value="file">単一ファイル</option>
+                        <option value="directory">ディレクトリ</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-row" id="file_path_row">
+                <div class="fieldBox">
+                    <label for="file_path">ファイルパス:</label>
+                    <input type="text" name="file_path" id="file_path" class="vTextField" required>
+                    <div class="help">データディレクトリ内のファイルへの絶対パスを入力してください。</div>
+                </div>
+            </div>
+            
+            <div class="form-row" id="directory_path_row" style="display: none;">
+                <div class="fieldBox">
+                    <label for="directory_path">ディレクトリパス:</label>
+                    <input type="text" name="directory_path" id="directory_path" class="vTextField">
+                    <div class="help">データディレクトリ内のディレクトリへの絶対パスを入力してください。</div>
+                </div>
+            </div>
+        </fieldset>
+        
+        <div class="submit-row">
+            <input type="submit" value="インポート" class="default" name="_import">
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var importType = document.getElementById('import_type');
+        var filePathRow = document.getElementById('file_path_row');
+        var directoryPathRow = document.getElementById('directory_path_row');
+        var filePath = document.getElementById('file_path');
+        var directoryPath = document.getElementById('directory_path');
+        
+        importType.addEventListener('change', function() {
+            if (importType.value === 'file') {
+                filePathRow.style.display = '';
+                directoryPathRow.style.display = 'none';
+                filePath.required = true;
+                directoryPath.required = false;
+            } else {
+                filePathRow.style.display = 'none';
+                directoryPathRow.style.display = '';
+                filePath.required = false;
+                directoryPath.required = true;
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -16,8 +16,19 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import TemplateView, RedirectView
+from django.shortcuts import redirect
+from ingest.admin import IngestAdminSite
+from django.contrib.admin.views.decorators import staff_member_required
+
+# 管理サイトのインデックスページをカスタムテンプレートで上書き
+admin.site.index_template = 'admin/custom_index.html'
 
 urlpatterns = [
     path('ingest/', include('ingest.urls')),
     path('admin/', admin.site.urls),
+    # カスタム管理ビューのURLを追加
+    path('admin/import-all/', admin.site.admin_view(IngestAdminSite().import_all_view), name='admin_import_all'),
+    # ルートURLを管理画面にリダイレクト
+    path('', RedirectView.as_view(url='/admin/', permanent=False), name='index'),
 ]

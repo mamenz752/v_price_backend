@@ -2,4 +2,7 @@
 
 ## 環境構築手順
 
-1. `docker compose run web django-admin startproject config .`
+1. `docker compose up -d`
+2. `docker compose run web django-admin startproject config .`
+
+`docker system prune -a --volumes`

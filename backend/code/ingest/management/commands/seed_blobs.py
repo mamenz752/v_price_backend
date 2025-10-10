@@ -66,7 +66,17 @@ class Command(BaseCommand):
         count = 0
         for p in src.rglob("*"):
             if p.is_file():
-                blob_name = str(p.relative_to(src)).replace("\\", "/")
+                # 相対パスを取得
+                rel_path = str(p.relative_to(src)).replace("\\", "/")
+                
+                # txt/プレフィックスを除去（txt/price/ -> price/、txt/weather/ -> weather/）
+                if rel_path.startswith("txt/"):
+                    blob_name = rel_path[4:]  # "txt/"の4文字を除去
+                    self.stdout.write(f"変換: {rel_path} -> {blob_name}")
+                else:
+                    blob_name = rel_path
+                
+                # Blobにアップロード
                 with open(p, "rb") as f:
                     container.upload_blob(name=blob_name, data=f, overwrite=True)
                 count += 1

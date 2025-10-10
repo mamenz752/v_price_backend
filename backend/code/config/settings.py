@@ -27,7 +27,8 @@ SECRET_KEY = 'django-insecure-xa7o_f7r7bd@0+e%z)ls+hhxm(0g+j!raa=2#4i(#c@*0zqh5^
 DEBUG = True
 
 INGEST_ROOT = os.getenv("INGEST_ROOT", "/data/ingest")
-INGEST_PREFIX = os.getenv("INGEST_PREFIX", "txt/")
+INGEST_PREFIX_PRICE = os.getenv("INGEST_PREFIX_PRICE", "price/")
+INGEST_PREFIX_WEATHER = os.getenv("INGEST_PREFIX_WEATHER", "weather/")
 
 # Azure Storage settingsz
 AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME", "devstoreaccount1")
@@ -76,7 +77,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

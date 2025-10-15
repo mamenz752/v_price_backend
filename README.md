@@ -15,9 +15,9 @@ Azuriteストレージやローカルファイルシステムからデータを�
 ## 環境構築手順
 
 1. `docker compose up -d`
-2. `docker compose exec backend python code/manage.py migrate`
-3. `docker compose exec backend python code/manage.py createsuperuser`
-4. `docker compose exec backend python code/manage.py seed_data`
+2. `docker compose run --rm django-migrate`
+3. `docker compose exec web python manage.py createsuperuser`
+4. `docker compose exec web python manage.py seed_data`
 
 データベースとボリュームを含む全てのDocker資産をクリアする場合:
 
@@ -95,25 +95,25 @@ docker system prune -a --volumes
 全てのデータをインポート:
 
 ```bash
-docker compose exec backend python code/manage.py import_azurite_data
+docker compose exec web python manage.py import_azurite_data
 ```
 
 価格データのみインポート:
 
 ```bash
-docker compose exec backend python code/manage.py import_azurite_data --price-only
+docker compose exec web python manage.py import_azurite_data --price-only
 ```
 
 気象データのみインポート:
 
 ```bash
-docker compose exec backend python code/manage.py import_azurite_data --weather-only
+docker compose exec web python manage.py import_azurite_data --weather-only
 ```
 
 特定ディレクトリからインポート:
 
 ```bash
-docker compose exec backend python code/manage.py import_azurite_data --price-dir /data/price/2022 --weather-dir /data/weather/2022
+docker compose exec web python manage.py import_azurite_data --price-dir /data/price/2022 --weather-dir /data/weather/2022
 ```
 
 ## ファイル形式
@@ -173,7 +173,7 @@ docker compose ps
 ログを確認:
 
 ```bash
-docker compose logs backend
+docker compose logs web
 ```
 
 ### 管理画面アクセスエラー
@@ -181,7 +181,7 @@ docker compose logs backend
 マイグレーションが実行されているか確認:
 
 ```bash
-docker compose exec backend python code/manage.py showmigrations
+docker compose exec web python manage.py showmigrations
 ```
 
 ### マイグレーションの実行方法

@@ -113,6 +113,186 @@ class MarketDataParser(DataParser):
     """
     市場価格データの解析を行うクラス
     """
+    # FIXME: なぜか中央卸売市場はDB参照で，野菜コードは直書き
+    ALL_V_KINDS_NUMBER = 56
+    V_CODES = ['31700', '31100', '30100', '36600', '36200', '34400', '34300', '34100']
+
+    @staticmethod
+    def _sort_data(data):
+        # 広島中央卸売市場縛り
+        region = Region.objects.filter(name="広島").first()
+        region_data = next((market for market in data[0]["Markets"][:30] if market["MarketCode"] == region.market_code), None)
+
+        # 広島産地縛り
+        p_area_code = region.p_area_code
+        items_data = region_data['Items']
+
+        # 野菜8品目縛り
+        v_data = []
+        for v in items_data[:MarketDataParser.ALL_V_KINDS_NUMBER]:
+            for v_code in MarketDataParser.V_CODES:
+                if v['ItemCode'] == v_code:
+                    v_data.append(v)
+
+        # 産地縛り
+        v_h_data = []
+        for i in range(len(v_data)):
+            v = v_data[i]["Details"]
+            for j in range(len(v)):
+                if v[j]["ProductionAreaCode"] == p_area_code:
+                    v_h_data.append(v[j])
+                    
+        return v_h_data
+    
+    @staticmethod
+    def _format_data_to_array(data):
+        v_code_array = []
+        v_array = []
+        
+        for price_data in data:
+            v_code_array.append(price_data["ItemCode"])
+        v_code_array = set(v_code_array)
+        
+        for v_code in v_code_array:
+            array = []
+            for price_data in data:
+                current_v_code = price_data["ItemCode"]
+                if current_v_code == v_code:
+                    array.append(price_data)
+            v_array.append(array)
+
+        return v_array
+    
+    @staticmethod
+    def _parse_price_objects_pattern_one(data):
+        data = data[0]
+        item_code = data["ItemCode"]
+        wpp = data["WeightPerPackage"]
+        if wpp == None:
+            wpp = 1
+            
+        h_price = 0
+        m_price = 0
+        l_price = 0
+        volume = data["IncomingVolume"]
+
+        if volume == None:
+            volume = 0.0
+
+        # h_price, m_price, l_priceの算出
+        if data["MediumPrice"] == None and data["HighPrice"] == None and data["LowPrice"] == None:
+            return None
+        
+        if data["MediumPrice"] == None:
+            h_price = data["HighPrice"] / wpp
+            l_price = data["LowPrice"] / wpp
+            a_price = (h_price + l_price) / 2
+        elif data["HighPrice"] == None and data["LowPrice"] == None:
+            m_price = data["MediumPrice"] / wpp
+            a_price = m_price
+        elif data["HighPrice"] == None:
+            m_price = data["MediumPrice"] / wpp
+            l_price = data["LowPrice"] / wpp
+            a_price = (m_price + l_price) / 2
+        elif data["LowPrice"] == None:
+            m_price = data["MediumPrice"] / wpp
+            h_price = data["HighPrice"] / wpp
+            a_price = (m_price + h_price) / 2
+        else:
+            h_price = data["HighPrice"] / wpp
+            m_price = data["MediumPrice"] / wpp
+            l_price = data["LowPrice"] / wpp
+            a_price = (h_price + m_price + l_price) / 3
+
+        # source_priceの算出
+        if m_price == 0:
+            s_price = (h_price + l_price) / 2
+        else:
+            s_price = m_price
+        
+        price = {
+            "target_date": data["TargetDate"],
+            "item_code": item_code,
+            "high_price": h_price,
+            "medium_price": m_price,
+            "low_price": l_price,
+            "average_price": a_price,
+            "source_price": s_price,
+            "arrival_amount": data["IncomingVolume"],
+            "weight_per": wpp,
+            "volume": volume,
+            "grade": data["Grade"],
+            "class": data["Class"],
+            "trend": data["MarketTrend"],
+            "variety_name": data["VarietyName"],
+        }
+        return price
+    
+    @staticmethod
+    def _parse_price_objects_pattern_two(data):
+        # MEMO: pattern_oneと違う点は以下のコメントアウト
+        # data = data[0]
+        item_code = data["ItemCode"]
+        wpp = data["WeightPerPackage"]
+        if wpp == None:
+            wpp = 1
+            
+        h_price = 0
+        m_price = 0
+        l_price = 0
+        volume = data["IncomingVolume"]
+
+        if volume == None:
+            volume = 0.0
+
+        # h_price, m_price, l_priceの算出
+        if data["MediumPrice"] == None and data["HighPrice"] == None and data["LowPrice"] == None:
+            return None
+        
+        if data["MediumPrice"] == None:
+            h_price = data["HighPrice"] / wpp
+            l_price = data["LowPrice"] / wpp
+            a_price = (h_price + l_price) / 2
+        elif data["HighPrice"] == None and data["LowPrice"] == None:
+            m_price = data["MediumPrice"] / wpp
+            a_price = m_price
+        elif data["HighPrice"] == None:
+            m_price = data["MediumPrice"] / wpp
+            l_price = data["LowPrice"] / wpp
+            a_price = (m_price + l_price) / 2
+        elif data["LowPrice"] == None:
+            m_price = data["MediumPrice"] / wpp
+            h_price = data["HighPrice"] / wpp
+            a_price = (m_price + h_price) / 2
+        else:
+            h_price = data["HighPrice"] / wpp
+            m_price = data["MediumPrice"] / wpp
+            l_price = data["LowPrice"] / wpp
+            a_price = (h_price + m_price + l_price) / 3
+
+        # source_priceの算出
+        if m_price == 0:
+            s_price = (h_price + l_price) / 2
+        else:
+            s_price = m_price
+        
+        price = {
+            "target_date": data["TargetDate"],
+            "item_code": item_code,
+            "high_price": h_price,
+            "medium_price": m_price,
+            "low_price": l_price,
+            "average_price": a_price,
+            "source_price": s_price,
+            "arrival_amount": data["IncomingVolume"],
+            "weight_per": wpp,
+            "volume": volume,
+            "grade": data["Grade"],
+            "class": data["Class"],
+            "trend": data["MarketTrend"],
+            "variety_name": data["VarietyName"],
+        }
+        return price
     
     @staticmethod
     def parse_price_txt_to_object(file_path: str, vegetable: Vegetable) -> Optional[IngestMarket]:
@@ -130,75 +310,23 @@ class MarketDataParser(DataParser):
             if not target_date:
                 logger.error(f"日付の解析失敗: {file_path}")
                 return None
-                
-            # TODO: 実際のファイル形式に合わせて解析ロジックを実装
-            # 仮実装としてダミーデータを返す
-            # 実際のファイルフォーマットに基づいてこのロジックを修正する必要があります
             
-            # ダミーデータではなく、実際のファイルを解析する例：
-            # ここではファイルの形式が不明なので仮実装していますが、
-            # 実際のデータ形式に合わせて実装してください
-            lines = content.strip().split('\n')
-            
-            # トレンド情報を抽出（例：上昇、下降、安定など）
-            # 実際のファイル内容に合わせて調整する必要があります
-            trend = None
-            if len(lines) > 5 and '傾向' in lines[5].lower():
-                trend_line = lines[5].split(':')
-                if len(trend_line) > 1:
-                    trend = trend_line[1].strip()
-                    
-            # 価格データを抽出
-            # 実際のファイル内容に合わせて調整する必要があります
-            high_price = 100.0  # ダミーデータ
-            medium_price = 80.0  # ダミーデータ
-            low_price = 60.0     # ダミーデータ
-            average_price = 80.0  # ダミーデータ
-            arrival_amount = 500.0  # ダミーデータ
-            weight_per = 100.0    # ダミーデータ
-            
-            # ファイル内容から実際のデータを抽出（例）
-            for line in lines:
-                if '最高値:' in line:
-                    try:
-                        high_price = float(line.split(':')[1].strip())
-                    except (ValueError, IndexError):
-                        pass
-                elif '中央値:' in line:
-                    try:
-                        medium_price = float(line.split(':')[1].strip())
-                    except (ValueError, IndexError):
-                        pass
-                elif '最安値:' in line:
-                    try:
-                        low_price = float(line.split(':')[1].strip())
-                    except (ValueError, IndexError):
-                        pass
-                elif '平均:' in line:
-                    try:
-                        average_price = float(line.split(':')[1].strip())
-                    except (ValueError, IndexError):
-                        pass
-                elif '入荷量:' in line:
-                    try:
-                        arrival_amount = float(line.split(':')[1].strip())
-                    except (ValueError, IndexError):
-                        pass
-                elif '重量:' in line:
-                    try:
-                        weight_per = float(line.split(':')[1].strip())
-                    except (ValueError, IndexError):
-                        pass
+            # データの解析
+            sorted_data = MarketDataParser._sort_data(content)
+            formatted_data = MarketDataParser._format_data(sorted_data)
+            price_data = (lambda: (a := MarketDataParser._parse_price_objects_pattern_one(formatted_data)) if a is not None else MarketDataParser._parse_price_objects_pattern_two(formatted_data))()
             
             market = IngestMarket(
                 target_date=target_date,
-                high_price=high_price,
-                medium_price=medium_price,
-                low_price=low_price,
-                average_price=average_price,
-                arrival_amount=arrival_amount,
-                weight_per=weight_per,
-                trend=trend,
+                high_price=price_data.get("high_price"),
+                medium_price=price_data.get("medium_price"),
+                low_price=price_data.get("low_price"),
+                average_price=price_data.get("average_price"),
+                source_price=price_data.get("source_price"),
+                arrival_amount=price_data.get("arrival_amount"),
+                weight_per=price_data.get("weight_per"),
+                volume=price_data.get("volume"),
+                trend=price_data.get("trend"),
                 vegetable=vegetable
             )
             return market

@@ -34,4 +34,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # ルートURLを管理画面にリダイレクト
     path('', RedirectView.as_view(url='/admin/', permanent=False), name='index'),
+    path('reports/', include('reports.urls')),
 ]

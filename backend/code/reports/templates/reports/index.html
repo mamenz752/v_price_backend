@@ -8,6 +8,49 @@
 <main>
     <div class="container">
         <h1>野菜価格予測システムについて</h1>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        予測データ
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item"><a href="{% url 'reports:cabbage' %}">キャベツ</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:chinese_cabbage' %}">白菜</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:cucumber' %}">きゅうり</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:tomato' %}">トマト</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:eggplant' %}">なす</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:radish' %}">大根</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:potato' %}">じゃがいも</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:onion' %}">たまねぎ</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        市場取引データ（生データ）
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item"><a href="{% url 'reports:ingest_cabbage' %}">キャベツ</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:ingest_chinese_cabbage' %}">白菜</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:ingest_cucumber' %}">きゅうり</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:ingest_tomato' %}">トマト</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:ingest_eggplant' %}">なす</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:ingest_radish' %}">大根</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:ingest_potato' %}">じゃがいも</a></li>
+                            <li class="list-group-item"><a href="{% url 'reports:ingest_onion' %}">たまねぎ</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <h4>データソース</h4>
         <ul>
             <li>農研機構</li>

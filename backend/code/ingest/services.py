@@ -38,23 +38,26 @@ class DataParser:
     def parse_date_from_filename(filename: str) -> Optional[datetime.date]:
         """
         ファイル名から日付を抽出する
-        例: 2022-01-05.txt -> 2022-01-05
+        例: 
+        - price/2022/01/2022-01-05.txt -> 2022-01-05
+        - 2022-01-05.txt -> 2022-01-05
+        - weather/2022/01/2022_01_mid.csv -> 2022-01-15
         """
         try:
             # ファイル名からファイル拡張子を除いた部分を取得
             base_name = os.path.basename(filename)
             name_without_ext = os.path.splitext(base_name)[0]
             
-            # 日付形式の場合、日付オブジェクトに変換
-            if '-' in name_without_ext:
-                date_parts = name_without_ext.split('-')
-                year = int(date_parts[0])
-                month = int(date_parts[1])
-                day = int(date_parts[2])
+            # price/YYYY/MM/YYYY-MM-DD.txt または YYYY-MM-DD.txt パターン
+            date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', name_without_ext)
+            if date_match:
+                year = int(date_match.group(1))
+                month = int(date_match.group(2))
+                day = int(date_match.group(3))
                 return datetime.date(year, month, day)
                 
-            # 2022_01_mid.csv のようなフォーマットの場合
-            match = re.match(r'(\d{4})_(\d{2})_(mid|last)', name_without_ext)
+            # weather/YYYY/MM/YYYY_MM_mid.csv または YYYY_MM_mid.csv パターン
+            match = re.search(r'(\d{4})_(\d{2})_(mid|last)', name_without_ext)
             if match:
                 year = int(match.group(1))
                 month = int(match.group(2))
@@ -70,6 +73,21 @@ class DataParser:
                     last_day = (next_month - datetime.timedelta(days=1)).day
                     day = last_day
                 return datetime.date(year, month, day)
+            
+            # ディレクトリ構造からの抽出を試みる（例：price/2022/01/file.txt）
+            path_parts = filename.split('/')
+            if len(path_parts) >= 3:
+                # 最後から3番目と2番目の部分が年と月を表しているか確認
+                try:
+                    year_part = path_parts[-3]
+                    month_part = path_parts[-2]
+                    if year_part.isdigit() and month_part.isdigit():
+                        year = int(year_part)
+                        month = int(month_part)
+                        # 日付は不明なので月の初日とする
+                        return datetime.date(year, month, 1)
+                except (ValueError, IndexError):
+                    pass
                 
             return None
         except (ValueError, IndexError) as e:
@@ -888,6 +906,7 @@ class FileProcessor:
     def process_weather_files_from_dir(directory: str, region: Region) -> int:
         """
         指定ディレクトリ内の全てのCSVファイルから天気データを取り込む
+        新しいディレクトリ構造: weather/YYYY/MM/YYYY_MM_mid.csv
         """
         imported_count = 0
         
@@ -897,10 +916,13 @@ class FileProcessor:
                 logger.error(f"ディレクトリが存在しません: {directory}")
                 return imported_count
             
-            # CSVファイルを検索
-            csv_files = list(dir_path.glob("*.csv"))
+            # CSVファイルを検索（サブディレクトリも含め再帰的に）
+            csv_files = list(dir_path.glob("**/*.csv"))
+            logger.info(f"天気データCSVファイル検索結果: {directory}, ファイル数: {len(csv_files)}")
+            
             for csv_file in csv_files:
                 # ファイル名のパターンに基づいて処理
+                logger.info(f"天気データファイル処理開始: {csv_file}")
                 weather_objects = WeatherDataParser.parse_weather_csv_by_pattern(str(csv_file), region)
                 saved_count = DataSaver.save_weather_data(weather_objects)
                 imported_count += saved_count
@@ -915,6 +937,7 @@ class FileProcessor:
     def process_price_files_from_dir(directory: str, vegetable: Vegetable) -> int:
         """
         指定ディレクトリ内の全てのテキストファイルから価格データを取り込む
+        新しいディレクトリ構造: price/YYYY/MM/YYYY-MM-DD.txt
         """
         imported_count = 0
         
@@ -924,12 +947,12 @@ class FileProcessor:
                 logger.error(f"ディレクトリが存在しません: {directory}")
                 return imported_count
             
-            # テキストファイルを検索
-            txt_files = list(dir_path.glob("*.txt"))
-            logger.info(f"テキストファイル検索結果: {directory}, ファイル数: {len(txt_files)}")
+            # テキストファイルを検索（サブディレクトリも含め再帰的に）
+            txt_files = list(dir_path.glob("**/*.txt"))
+            logger.info(f"価格データテキストファイル検索結果: {directory}, ファイル数: {len(txt_files)}")
             
             for txt_file in txt_files:
-                logger.info(f"ファイル処理開始: {txt_file}")
+                logger.info(f"価格データファイル処理開始: {txt_file}")
                 try:
                     markets = MarketDataParser.parse_price_txt_to_object(str(txt_file), vegetable)
                     if markets:
@@ -955,6 +978,7 @@ class FileProcessor:
         """
         全ての地域の天気データをインポートする
         Azuriteからのインポートを優先的に行い、失敗した場合にローカルファイルを使用
+        新しいディレクトリ構造: weather/YYYY/MM/YYYY_MM_mid.csv
         """
         results = {}
         
@@ -1074,10 +1098,18 @@ class FileProcessor:
                 logger.info(f"年別ディレクトリ処理中: {year_path}")
                 
                 try:
-                    # この年のデータをインポート
-                    imported_count = FileProcessor.process_weather_files_from_dir(year_path, region)
-                    total_imported += imported_count
-                    logger.info(f"年別インポート完了: {year_dir}, {imported_count}件")
+                    # 月別ディレクトリをループ
+                    month_dirs = [d for d in os.listdir(year_path) if os.path.isdir(os.path.join(year_path, d))]
+                    logger.info(f"月別ディレクトリ: {month_dirs}")
+                    
+                    for month_dir in month_dirs:
+                        month_path = os.path.join(year_path, month_dir)
+                        logger.info(f"月別ディレクトリ処理中: {month_path}")
+                        
+                        # この月のデータをインポート
+                        imported_count = FileProcessor.process_weather_files_from_dir(month_path, region)
+                        total_imported += imported_count
+                        logger.info(f"月別インポート完了: {year_dir}/{month_dir}, {imported_count}件")
                 except Exception as e:
                     logger.error(f"ディレクトリ処理エラー: {year_path}, {str(e)}")
             
@@ -1091,6 +1123,7 @@ class FileProcessor:
         """
         全ての野菜の価格データをインポートする
         Azuriteからのインポートを優先的に行い、失敗した場合にローカルファイルを使用
+        新しいディレクトリ構造: price/YYYY/MM/YYYY-MM-DD.txt
         """
         results = {}
         
@@ -1107,15 +1140,18 @@ class FileProcessor:
                     logger.warning("野菜データがありません。先に野菜データを登録してください。")
                     return results
                 
-                # プレフィックス設定（現在のデータはプレフィックスなしで保存されているようです）
-                # 年号でフィルタリングする
+                # プレフィックスを設定
+                price_prefix = settings.INGEST_PREFIX_PRICE
+                if not price_prefix.endswith('/'):
+                    price_prefix += '/'
+                
                 try:
-                    # すべてのBlobを取得
-                    blobs = list(container.list_blobs())
-                    logger.info(f"Azure Blob検索結果: 全ファイル数={len(blobs)}")
+                    # Blobの一覧を取得
+                    blobs = list(container.list_blobs(name_starts_with=price_prefix))
+                    logger.info(f"Azure Blob検索結果: プレフィックス={price_prefix}, ファイル数={len(blobs)}")
                     
-                    # 価格データのパターンにマッチするものをフィルタリング（例: 2019/01/2019-01-05.txt）
-                    price_files = [blob for blob in blobs if re.match(r'\d{4}/\d{2}/\d{4}-\d{2}-\d{2}\.txt', blob.name)]
+                    # 価格データのパターンにマッチするものをフィルタリング（例: price/2019/01/2019-01-05.txt）
+                    price_files = [blob for blob in blobs if re.match(r'price/\d{4}/\d{2}/\d{4}-\d{2}-\d{2}\.txt', blob.name)]
                     logger.info(f"価格データファイル数（パターンマッチ後）: {len(price_files)}")
                     
                     # ファイル名に基づいて野菜ごとの処理をトラッキング

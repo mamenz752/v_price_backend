@@ -25,7 +25,7 @@ services:
       sh -c "sleep 5 &&
             python manage.py wait_for_azurite &&
             python manage.py init_azurite &&
-            python manage.py seed_blobs ./data &&
+            python manage.py list_blobs --upload &&
             python manage.py runserver 0.0.0.0:8000"
     depends_on: [db, azurite]
     environment:

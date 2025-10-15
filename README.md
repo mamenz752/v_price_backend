@@ -195,4 +195,5 @@ docker compose run --rm django-migrate
 このコマンドはAzuriteに接続せずにマイグレーションのみを実行します。
 
 
-azurite上ではprice/2019/01/2019-10-01.txtのような形式とpriceと同じディレクトリにweather/2019/01/2019_01_mid.csvのように保存するようにしていきたいです．それに伴うazurite初期化コマンド，インポートコマンド，service.pyなどを修正してください．
+
+データ一括削除機能についてバグ確認

@@ -26,9 +26,14 @@ SECRET_KEY = 'django-insecure-xa7o_f7r7bd@0+e%z)ls+hhxm(0g+j!raa=2#4i(#c@*0zqh5^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# データ関連のパス設定
 INGEST_ROOT = os.getenv("INGEST_ROOT", "/data")
+# 新しいディレクトリ構造
 INGEST_PREFIX_PRICE = os.getenv("INGEST_PREFIX_PRICE", "price/")
 INGEST_PREFIX_WEATHER = os.getenv("INGEST_PREFIX_WEATHER", "weather/")
+
+# ベースとなるディレクトリ
+DATA_BASE_DIR = os.path.join(BASE_DIR.parent.parent, "data")
 
 # Azuriteを無効にするフラグ（マイグレーション専用）
 AZURE_DISABLE = os.environ.get('AZURE_DISABLE', 'False').lower() == 'true'

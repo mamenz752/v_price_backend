@@ -192,6 +192,9 @@ class IngestAdminSite(admin.AdminSite):
         urls = super().get_urls()
         custom_urls = [
             path('import-all/', self.admin_view(self.import_all_view), name='import_all'),
+            path('import-price/', self.admin_view(self.import_price_view), name='import_price'),
+            path('import-weather/', self.admin_view(self.import_weather_view), name='import_weather'),
+            path('delete-all/', self.admin_view(self.delete_all_view), name='delete_all'),
         ]
         return custom_urls + urls
     
@@ -228,6 +231,107 @@ class IngestAdminSite(admin.AdminSite):
                 messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
         
         return TemplateResponse(request, 'admin/import_all.html', context)
+        
+    def import_price_view(self, request):
+        """
+        価格データのみをインポートするビュー
+        """
+        context = dict(
+            self.each_context(request),
+            title="価格データのインポート",
+            settings={
+                'INGEST_ROOT': settings.INGEST_ROOT,
+                'INGEST_PREFIX_PRICE': settings.INGEST_PREFIX_PRICE
+            }
+        )
+        
+        if request.method == 'POST':
+            try:
+                # 価格データをインポート
+                price_results = DataIngestor.import_all_price_data()
+                
+                context.update({
+                    'price_results': price_results,
+                    'success': True,
+                })
+                
+                messages.success(request, '価格データのインポートが完了しました！')
+            except Exception as e:
+                messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
+        
+        return TemplateResponse(request, 'admin/import_price.html', context)
+        
+    def import_weather_view(self, request):
+        """
+        天気データのみをインポートするビュー
+        """
+        context = dict(
+            self.each_context(request),
+            title="天気データのインポート",
+            settings={
+                'INGEST_ROOT': settings.INGEST_ROOT,
+                'INGEST_PREFIX_WEATHER': settings.INGEST_PREFIX_WEATHER
+            }
+        )
+        
+        if request.method == 'POST':
+            try:
+                # 天気データをインポート
+                weather_results = DataIngestor.import_all_weather_data()
+                
+                context.update({
+                    'weather_results': weather_results,
+                    'success': True,
+                })
+                
+                messages.success(request, '天気データのインポートが完了しました！')
+            except Exception as e:
+                messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
+        
+        return TemplateResponse(request, 'admin/import_weather.html', context)
+        
+    def delete_all_view(self, request):
+        """
+        すべてのデータを削除するビュー
+        """
+        context = dict(
+            self.each_context(request),
+            title="すべてのデータを削除",
+            price_count=IngestMarket.objects.count(),
+            weather_count=IngestWeather.objects.count()
+        )
+        
+        if request.method == 'POST':
+            try:
+                delete_price = 'delete_price' in request.POST
+                delete_weather = 'delete_weather' in request.POST
+                
+                if not delete_price and not delete_weather:
+                    messages.warning(request, '削除するデータが選択されていません。')
+                    return TemplateResponse(request, 'admin/delete_all.html', context)
+                
+                price_count = 0
+                weather_count = 0
+                
+                if delete_price:
+                    price_count = IngestMarket.objects.count()
+                    IngestMarket.objects.all().delete()
+                
+                if delete_weather:
+                    weather_count = IngestWeather.objects.count()
+                    IngestWeather.objects.all().delete()
+                
+                context.update({
+                    'deleted_price_count': price_count,
+                    'deleted_weather_count': weather_count,
+                    'success': True,
+                })
+                
+                messages.success(request, '選択したデータの削除が完了しました！')
+            except Exception as e:
+                messages.error(request, f'削除処理中にエラーが発生しました: {str(e)}')
+        
+        return TemplateResponse(request, 'admin/delete_all.html', context)
 
 # カスタム管理サイトを使用するか否かはプロジェクトの要件に応じて変更してください
 # 通常のadmin.siteを使用する場合は、以下のコードをコメントアウトし、
@@ -238,11 +342,14 @@ admin.site.site_header = "データ取り込み管理"
 admin.site.site_title = "データ取り込み管理"
 admin.site.index_title = "データ取り込み管理インデックス"
 
-# 全データインポート用のカスタムビューを追加
+# 全データインポートと削除用のカスタムビューを追加
 # register_viewメソッドがない場合のための代替手段
 try:
     # Django 3.1+
     admin.site.register_view('import-all/', view=lambda request: admin.site.admin_view(IngestAdminSite().import_all_view)(request), name='すべてのデータをインポート')
+    admin.site.register_view('import-price/', view=lambda request: admin.site.admin_view(IngestAdminSite().import_price_view)(request), name='価格データのみをインポート')
+    admin.site.register_view('import-weather/', view=lambda request: admin.site.admin_view(IngestAdminSite().import_weather_view)(request), name='天気データのみをインポート')
+    admin.site.register_view('delete-all/', view=lambda request: admin.site.admin_view(IngestAdminSite().delete_all_view)(request), name='すべてのデータを削除')
 except AttributeError:
     # register_viewがない場合は、URLパターンを直接追加するか、
     # admin.pyに以下の機能を実装する必要があります

@@ -20,6 +20,22 @@
     .import-button:hover {
         background-color: #417690;
     }
+    .delete-button {
+        display: block;
+        padding: 15px;
+        background-color: #ba2121;
+        color: white;
+        text-decoration: none;
+        text-align: center;
+        border-radius: 4px;
+        margin: 20px 0;
+        font-size: 16px;
+        font-weight: bold;
+        transition: background-color 0.3s;
+    }
+    .delete-button:hover {
+        background-color: #a41515;
+    }
     .import-button-container {
         margin: 20px;
         padding: 20px;
@@ -29,6 +45,13 @@
     }
     .button-description {
         margin: 10px 0;
+    }
+    .button-row {
+        display: flex;
+        gap: 20px;
+    }
+    .button-row a {
+        flex: 1;
     }
 </style>
 {% endblock %}
@@ -43,17 +66,30 @@
 
 {% block content %}
 <div id="content-main">
-    <!-- ワンクリックインポート機能 -->
+    <!-- データ管理機能 -->
     <div class="import-button-container">
-        <h1>{% trans 'データ一括インポート' %}</h1>
+        <h1>{% trans 'データ管理' %}</h1>
         <p class="button-description">
-            ボタン一つで全てのデータを取り込むことができます。このプロセスには時間がかかる場合があります。
+            データの一括インポートおよび削除を行うことができます。
         </p>
-        <a href="{% url 'admin_import_all' %}" class="import-button">
-            {% trans '全データを一括インポート' %}
-        </a>
+        <div class="button-row">
+            <a href="{% url 'admin_import_all' %}" class="import-button">
+                {% trans '全データを一括インポート' %}
+            </a>
+            <a href="{% url 'admin_delete_all' %}" class="delete-button">
+                {% trans 'データ一括削除' %}
+            </a>
+        </div>
+        <div class="button-row">
+            <a href="{% url 'admin_import_price' %}" class="import-button">
+                {% trans '価格データのみインポート' %}
+            </a>
+            <a href="{% url 'admin_import_weather' %}" class="import-button">
+                {% trans '天気データのみインポート' %}
+            </a>
+        </div>
         <p>
-            <strong>注意:</strong> インポートを実行する前に、野菜マスターと地域マスターが登録されていることを確認してください。
+            <strong>注意:</strong> インポートを実行する前に、野菜マスターと地域マスターが登録されていることを確認してください。削除操作は元に戻せません。
         </p>
     </div>
 
@@ -97,17 +133,44 @@
         <p>{% translate "You don't have permission to view or edit anything." %}</p>
     {% endif %}
 
-    <!-- インポート関連のショートカットリンク -->
+    <!-- データ管理機能のショートカットリンク -->
     <div class="module">
         <table>
             <caption>
-                <a href="#" class="section">{% trans 'インポート機能' %}</a>
+                <a href="#" class="section">{% trans 'データ管理機能' %}</a>
             </caption>
             <tbody>
                 <tr>
                     <th scope="row">
+                        <a href="{% url 'admin_import_all' %}">
+                            {% trans '全データ一括インポート' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin_import_price' %}">
+                            {% trans '価格データのみインポート' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin_import_weather' %}">
+                            {% trans '天気データのみインポート' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
                         <a href="{% url 'admin:ingest_ingestmarket_import' %}">
-                            {% trans '価格データのインポート' %}
+                            {% trans '個別価格データのインポート' %}
                         </a>
                     </th>
                     <td></td>
@@ -116,7 +179,16 @@
                 <tr>
                     <th scope="row">
                         <a href="{% url 'admin:ingest_ingestweather_import' %}">
-                            {% trans '気象データのインポート' %}
+                            {% trans '個別気象データのインポート' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin_delete_all' %}">
+                            {% trans 'データ一括削除' %}
                         </a>
                     </th>
                     <td></td>

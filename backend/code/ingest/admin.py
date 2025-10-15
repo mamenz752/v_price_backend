@@ -72,9 +72,9 @@ class AdminImportMixin:
 
 @admin.register(IngestMarket)
 class IngestMarketAdmin(AdminImportMixin, admin.ModelAdmin):
-    list_display = ("id", "target_date", "high_price", "medium_price", "low_price", "average_price", "arrival_amount", "weight_per", "vegetable")
-    readonly_fields = ("id",)
-    fields = ("target_date", "high_price", "medium_price", "low_price", "average_price", "arrival_amount", "weight_per", "vegetable")
+    list_display = ("id", "target_date", "high_price", "medium_price", "low_price", "average_price", "source_price", "arrival_amount", "weight_per", "volume", "trend", "vegetable", "region", "created_at", "updated_at")
+    readonly_fields = ("id", "created_at", "updated_at")
+    fields = ("target_date", "high_price", "medium_price", "low_price", "average_price", "source_price", "arrival_amount", "weight_per", "volume", "trend", "vegetable", "region", "created_at", "updated_at")
     
     def get_import_context(self, request):
         return {
@@ -123,9 +123,9 @@ class IngestMarketAdmin(AdminImportMixin, admin.ModelAdmin):
 
 @admin.register(IngestWeather)
 class IngestWeatherAdmin(AdminImportMixin, admin.ModelAdmin):
-    list_display = ("id", "target_date", "max_temp", "mean_temp", "min_temp", "sum_precipitation", "sunshine_duration", "ave_humidity", "region")
-    readonly_fields = ("id",)
-    fields = ("target_date", "max_temp", "mean_temp", "min_temp", "sum_precipitation", "sunshine_duration", "ave_humidity", "region")
+    list_display = ("id", "target_date", "max_temp", "mean_temp", "min_temp", "sum_precipitation", "sunshine_duration", "ave_humidity", "region", "created_at", "updated_at")
+    readonly_fields = ("id", "created_at", "updated_at")
+    fields = ("target_date", "max_temp", "mean_temp", "min_temp", "sum_precipitation", "sunshine_duration", "ave_humidity", "region", "created_at", "updated_at")
     
     def get_import_context(self, request):
         return {

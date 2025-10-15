@@ -67,7 +67,9 @@ INSTALLED_APPS = [
     "storages",
 
     'accounts.apps.AccountsConfig',
-    'ingest.apps.IngestConfig'
+    'ingest.apps.IngestConfig',
+    'feedback.apps.FeedbackConfig',
+    'reports.apps.ReportsConfig',
 ]
 
 MIDDLEWARE = [

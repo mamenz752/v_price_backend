@@ -1,0 +1,45 @@
+{% extends "config/base_reports.html" %}
+
+
+{% block contents %}
+<main>
+    <div class="container">
+        <section class="summary">
+            <h4>キャベツ</h4>
+            <div class="card" style="width: 18rem;">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">120円</h5>
+                    <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
+                </div>
+            </div>
+        </section>
+        
+        <section class="price-graph">
+            <h4 class="contents-header">{% block graph_title %}{% endblock %}の価格予測</h4>
+            <div class="container">
+                <div class="price_plot">
+                    <canvas
+                    id="price"
+                    style="width: 800px; height: 400px;"
+                    ></canvas>
+                </div>
+            </div>
+            <!-- <div class="button-group">
+                <button id="toggleHigh" class="button">高値</button>
+                <button id="toggleMedian" class="button">中値</button>
+                <button id="toggleLow" class="button">安値</button>
+                <button id="toggleRecent" class="button">直近価格</button>
+            </div> -->
+        </section>
+        
+        <section class="event-calendar">
+            <h4 class="contents-header">{% block calendar_title %}{% endblock %}</h4>
+            <div class="calendar_plot">
+                <div id="calendar"></div>
+            </div>
+        </section>
+                
+    </div>
+</main>
+{% endblock contents %}
+    

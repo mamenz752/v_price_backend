@@ -88,6 +88,22 @@
                 {% trans '天気データのみインポート' %}
             </a>
         </div>
+        <div class="button-row">
+            <a href="{% url 'admin_compute_all' %}" class="import-button">
+                {% trans 'Compute集計（価格＋天気）' %}
+            </a>
+            <a href="{% url 'admin_compute_market' %}" class="import-button">
+                {% trans 'Compute集計（価格のみ）' %}
+            </a>
+        </div>
+        <div class="button-row">
+            <a href="{% url 'admin_compute_weather' %}" class="import-button">
+                {% trans 'Compute集計（天気のみ）' %}
+            </a>
+            <a href="{% url 'admin_compute_reset' %}" class="delete-button">
+                {% trans 'Computeデータ削除' %}
+            </a>
+        </div>
         <p>
             <strong>注意:</strong> インポートを実行する前に、野菜マスターと地域マスターが登録されていることを確認してください。削除操作は元に戻せません。
         </p>
@@ -162,6 +178,42 @@
                     <th scope="row">
                         <a href="{% url 'admin_import_weather' %}">
                             {% trans '天気データのみインポート' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin_compute_all' %}">
+                            {% trans 'Compute集計（価格＋天気）' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin_compute_market' %}">
+                            {% trans 'Compute集計（価格のみ）' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin_compute_weather' %}">
+                            {% trans 'Compute集計（天気のみ）' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin_compute_reset' %}">
+                            {% trans 'Computeデータ削除' %}
                         </a>
                     </th>
                     <td></td>

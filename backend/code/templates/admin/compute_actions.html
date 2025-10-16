@@ -1,0 +1,24 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+    <h1>{{ title }}</h1>
+    <p>{{ description }}</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="button default">{{ button_label }}</button>
+        <a href="{{ back_url }}" class="button">{{ _("管理画面に戻る") }}</a>
+    </form>
+    {% if success and stats %}
+        <div class="results">
+            <h2>{% trans "実行結果" %}</h2>
+            <ul>
+                {% for line in stats %}
+                    <li>{{ line }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

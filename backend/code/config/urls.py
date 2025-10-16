@@ -19,6 +19,12 @@ from django.urls import path, include
 from django.views.generic import TemplateView, RedirectView
 from django.shortcuts import redirect
 from ingest.admin import IngestAdminSite
+from compute.admin import (
+    compute_all_view,
+    compute_market_view,
+    compute_weather_view,
+    compute_reset_view,
+)
 from django.contrib.admin.views.decorators import staff_member_required
 
 # 管理サイトのインデックスページをカスタムテンプレートで上書き
@@ -31,6 +37,10 @@ urlpatterns = [
     path('admin/import-price/', admin.site.admin_view(IngestAdminSite().import_price_view), name='admin_import_price'),
     path('admin/import-weather/', admin.site.admin_view(IngestAdminSite().import_weather_view), name='admin_import_weather'),
     path('admin/delete-all/', admin.site.admin_view(IngestAdminSite().delete_all_view), name='admin_delete_all'),
+    path('admin/compute/all/', admin.site.admin_view(compute_all_view), name='admin_compute_all'),
+    path('admin/compute/market/', admin.site.admin_view(compute_market_view), name='admin_compute_market'),
+    path('admin/compute/weather/', admin.site.admin_view(compute_weather_view), name='admin_compute_weather'),
+    path('admin/compute/reset/', admin.site.admin_view(compute_reset_view), name='admin_compute_reset'),
     path('admin/', admin.site.urls),
     # ルートURLを管理画面にリダイレクト
     path('', RedirectView.as_view(url='/admin/', permanent=False), name='index'),

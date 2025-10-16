@@ -1,9 +1,10 @@
-# 野菜価格データ取り込みシステム (v_price_backend)
+# 野菜価格データ分析システム (v_price_backend)
 
 ## 概要
 
 このシステムは野菜の価格データと気象データを取り込み、分析するためのDjangoアプリケーションです。
 Azuriteストレージやローカルファイルシステムからデータをインポートし、PostgreSQLデータベースに保存します。
+取り込んだデータを集計・分析し、半月ごとのデータとして提供します。
 
 ## システム構成
 
@@ -27,10 +28,22 @@ docker system prune -a --volumes
 
 ## 主要な機能
 
-1. テキストファイルからの野菜価格データのインポート
-2. CSVファイルからの気象データのインポート
-3. 管理画面からのデータインポート機能
-4. データ分析と可視化（今後実装予定）
+1. テキストファイルからの野菜価格データのインポート (ingestアプリ)
+2. CSVファイルからの気象データのインポート (ingestアプリ)
+3. 取り込んだデータの半月単位での集計 (computeアプリ)
+4. 管理画面からのデータインポート・集計機能
+5. ユーザー認証・管理 (accountsアプリ)
+6. レポート作成 (今後拡張予定)
+
+## 詳細ドキュメント
+
+詳細な説明は以下のドキュメントを参照してください：
+
+- [データモデル概要](docs/data_models.md)
+- [インポートシステムの解説](docs/import_system.md)
+- [データ集計処理の解説](docs/compute_system.md)
+- [システムアーキテクチャ](docs/architecture.md)
+- [開発者ガイド](docs/developer_guide.md)
 
 ## ディレクトリ構造
 
@@ -47,120 +60,63 @@ docker system prune -a --volumes
 └── docker-compose.yml     # Docker Compose設定
 ```
 
-## モデル構造
+## モデル構造概要
 
-### 野菜マスター (Vegetable)
+### ingestアプリ - データ取り込みモデル
 
-- name: 野菜名
-- code: 野菜コード
+- **Vegetable**: 野菜マスター（名前、コード）
+- **Region**: 地域マスター（名前、産地コード、市場コード、県コード、観測所コード）
+- **IngestMarket**: 市場データ（日付、価格情報、数量情報など）
+- **IngestWeather**: 気象データ（日付、気温、降水量、日照時間など）
 
-### 地域マスター (Region)
+### computeアプリ - データ集計モデル
 
-- name: 地域名
-- weather_code: 気象データコード
+- **ComputeMarket**: 半月単位の市場データ集計
+- **ComputeWeather**: 半月単位の気象データ集計
 
-### 市場データ (IngestMarket)
+## データフロー
 
-- target_date: 対象日
-- high_price: 最高価格
-- medium_price: 中央値価格
-- low_price: 最低価格
-- average_price: 平均価格
-- arrival_amount: 入荷量
-- weight_per: 単位重量
-- trend: 価格傾向 (上昇、下降、安定など)
-- vegetable: 野菜 (Vegetableへの外部キー)
+1. **データソース**: テキストファイル（価格データ）、CSVファイル（気象データ）
+2. **データ取り込み**: ingestアプリによる生データの取り込み
+3. **データ集計**: computeアプリによる半月単位の集計処理
+4. **データ活用**: 分析・可視化（今後拡張予定）
 
-### 気象データ (IngestWeather)
+## 管理インターフェース
 
-- target_date: 対象日
-- max_temp: 最高気温
-- mean_temp: 平均気温
-- min_temp: 最低気温
-- sum_precipitation: 総降水量
-- sunshine_duration: 日照時間
-- ave_humidity: 平均湿度
-- region: 地域 (Regionへの外部キー)
+システムの管理画面では以下の操作が可能です：
 
-## データインポート方法
+1. データインポート操作
+   - 全データインポート
+   - 価格データのみのインポート
+   - 気象データのみのインポート
 
-### 管理画面からのインポート
+2. データ集計操作
+   - 全データの集計（価格＋天気）
+   - 価格データのみの集計
+   - 天気データのみの集計
+   - 集計データのリセット
 
-1. [http://localhost:8000/admin/](http://localhost:8000/admin/) にアクセス
-2. スーパーユーザーでログイン
-3. 「Ingest」アプリから必要なインポート機能を選択
-
-### コマンドラインからのインポート
-
-全てのデータをインポート:
-
-```bash
-docker compose exec web python manage.py import_azurite_data
-```
-
-価格データのみインポート:
-
-```bash
-docker compose exec web python manage.py import_azurite_data --price-only
-```
-
-気象データのみインポート:
-
-```bash
-docker compose exec web python manage.py import_azurite_data --weather-only
-```
-
-特定ディレクトリからインポート:
-
-```bash
-docker compose exec web python manage.py import_azurite_data --price-dir /data/price/2022 --weather-dir /data/weather/2022
-```
-
-## ファイル形式
-
-### 価格データ (txt)
-
-ファイル名: `YYYY-MM-DD.txt`
-
-```text
-最高値: 123.45
-中央値: 100.0
-最安値: 80.5
-平均: 101.2
-入荷量: 500
-重量: 100
-傾向: 上昇
-```
-
-### 気象データ (csv)
-
-ファイル名: `YYYY_MM_mid.csv` または `YYYY_MM_last.csv`
-
-```csv
-年,月,日,最高気温,平均気温,最低気温,降水量の合計,日照時間,平均湿度
-2022,1,15,10.5,5.2,0.1,10,3.5,65
-```
-
-## 開発者向け情報
-
-### コードの主要なクラス
-
-- **DataParser**: データ解析の基本クラス
-- **MarketDataParser**: 市場価格データ解析クラス
-- **WeatherDataParser**: 気象データ解析クラス
-- **DataSaver**: データ保存クラス
-- **FileProcessor**: ファイル処理クラス
-
-### 新しいデータ形式のサポート追加方法
-
-1. 適切なParserクラスを拡張
-2. 新しいファイル形式に対応するメソッドを実装
-3. 必要に応じてDataSaverにメソッドを追加
-4. FileProcessorを更新して新しい解析メソッドを呼び出す
+3. マスターデータ管理
+   - 野菜マスター
+   - 地域マスター
 
 ## トラブルシューティング
 
-### データベース接続エラー
+## 運用とメンテナンス
+
+### データベース操作
+
+マイグレーションの実行（Azurite接続なし）:
+
+```bash
+docker compose run --rm django-migrate
+```
+
+このコマンドはAzuriteに接続せずにマイグレーションのみを実行します。
+
+### トラブルシューティング
+
+**データベース接続エラー**
 
 PostgreSQLコンテナが起動しているか確認:
 
@@ -168,7 +124,7 @@ PostgreSQLコンテナが起動しているか確認:
 docker compose ps
 ```
 
-### ファイルインポートエラー
+**ファイルインポートエラー**
 
 ログを確認:
 
@@ -176,20 +132,10 @@ docker compose ps
 docker compose logs web
 ```
 
-### 管理画面アクセスエラー
+**管理画面アクセスエラー**
 
 マイグレーションが実行されているか確認:
 
 ```bash
 docker compose exec web python manage.py showmigrations
 ```
-
-### マイグレーションの実行方法
-
-モデルを変更した後のマイグレーション実行（Azurite接続なし）:
-
-```bash
-docker compose run --rm django-migrate
-```
-
-このコマンドはAzuriteに接続せずにマイグレーションのみを実行します。

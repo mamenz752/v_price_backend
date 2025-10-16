@@ -1,0 +1,262 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_urls %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/dashboard.css' %}">
+<style>
+    .import-button {
+        display: block;
+        padding: 15px;
+        background-color: #79aec8;
+        color: white;
+        text-decoration: none;
+        text-align: center;
+        border-radius: 4px;
+        margin: 20px 0;
+        font-size: 16px;
+        font-weight: bold;
+        transition: background-color 0.3s;
+    }
+    .import-button:hover {
+        background-color: #417690;
+    }
+    .delete-button {
+        display: block;
+        padding: 15px;
+        background-color: #ba2121;
+        color: white;
+        text-decoration: none;
+        text-align: center;
+        border-radius: 4px;
+        margin: 20px 0;
+        font-size: 16px;
+        font-weight: bold;
+        transition: background-color 0.3s;
+    }
+    .delete-button:hover {
+        background-color: #a41515;
+    }
+    .import-button-container {
+        margin: 20px;
+        padding: 20px;
+        border: 1px solid #eee;
+        background-color: #f8f8f8;
+        border-radius: 4px;
+    }
+    .button-description {
+        margin: 10px 0;
+    }
+    .button-row {
+        display: flex;
+        gap: 20px;
+    }
+    .button-row a {
+        flex: 1;
+    }
+</style>
+{% endblock %}
+
+{% block coltype %}colMS{% endblock %}
+
+{% block bodyclass %}{{ block.super }} dashboard{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block nav-sidebar %}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <!-- データ管理機能 -->
+    <div class="import-button-container">
+        <h1>{% trans 'データ管理' %}</h1>
+        <p class="button-description">
+            データの一括インポートおよび削除を行うことができます。
+        </p>
+        <div class="button-row">
+            <a href="{% url 'admin_import_all' %}" class="import-button">
+                {% trans '全データを一括インポート' %}
+            </a>
+            <a href="{% url 'admin_delete_all' %}" class="delete-button">
+                {% trans 'データ一括削除' %}
+            </a>
+        </div>
+        <div class="button-row">
+            <a href="{% url 'admin_import_price' %}" class="import-button">
+                {% trans '価格データのみインポート' %}
+            </a>
+            <a href="{% url 'admin_import_weather' %}" class="import-button">
+                {% trans '天気データのみインポート' %}
+            </a>
+        </div>
+        <p>
+            <strong>注意:</strong> インポートを実行する前に、野菜マスターと地域マスターが登録されていることを確認してください。削除操作は元に戻せません。
+        </p>
+    </div>
+
+    <!-- アプリごとのモデル一覧 -->
+    {% if app_list %}
+        {% for app in app_list %}
+            <div class="app-{{ app.app_label }} module{% if app.app_url in request.path %} current-app{% endif %}">
+                <table>
+                    <caption>
+                        <a href="{{ app.app_url }}" class="section" title="{% translate 'Models in the '|add:app.name|add:' application' %}">{{ app.name }}</a>
+                    </caption>
+                    {% for model in app.models %}
+                        <tr class="model-{{ model.object_name|lower }}{% if model.admin_url in request.path %} current-model{% endif %}">
+                            {% if model.admin_url %}
+                                <th scope="row"><a href="{{ model.admin_url }}"{% if model.admin_url in request.path %} aria-current="page"{% endif %}>{{ model.name }}</a></th>
+                            {% else %}
+                                <th scope="row">{{ model.name }}</th>
+                            {% endif %}
+
+                            {% if model.add_url %}
+                                <td><a href="{{ model.add_url }}" class="addlink">{% translate 'Add' %}</a></td>
+                            {% else %}
+                                <td></td>
+                            {% endif %}
+
+                            {% if model.admin_url and show_changelinks %}
+                                {% if model.view_only %}
+                                    <td><a href="{{ model.admin_url }}" class="viewlink">{% translate 'View' %}</a></td>
+                                {% else %}
+                                    <td><a href="{{ model.admin_url }}" class="changelink">{% translate 'Change' %}</a></td>
+                                {% endif %}
+                            {% elif show_changelinks %}
+                                <td></td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>{% translate "You don't have permission to view or edit anything." %}</p>
+    {% endif %}
+
+    <!-- データ管理機能のショートカットリンク -->
+    <div class="module">
+        <table>
+            <caption>
+                <a href="#" class="section">{% trans 'データ管理機能' %}</a>
+            </caption>
+            <tbody>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin_import_all' %}">
+                            {% trans '全データ一括インポート' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin_import_price' %}">
+                            {% trans '価格データのみインポート' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin_import_weather' %}">
+                            {% trans '天気データのみインポート' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin:ingest_ingestmarket_import' %}">
+                            {% trans '個別価格データのインポート' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin:ingest_ingestweather_import' %}">
+                            {% trans '個別気象データのインポート' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin_delete_all' %}">
+                            {% trans 'データ一括削除' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- マスター管理のショートカットリンク -->
+    <div class="module">
+        <table>
+            <caption>
+                <a href="#" class="section">{% trans 'マスター管理' %}</a>
+            </caption>
+            <tbody>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin:ingest_vegetable_changelist' %}">
+                            {% trans '野菜マスター' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <a href="{% url 'admin:ingest_region_changelist' %}">
+                            {% trans '地域マスター' %}
+                        </a>
+                    </th>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block sidebar %}
+<div id="content-related">
+    <div class="module" id="recent-actions-module">
+        <h2>{% translate 'Recent actions' %}</h2>
+        <h3>{% translate 'My actions' %}</h3>
+        {% load log %}
+        {% get_admin_log 10 as admin_log for_user user %}
+        {% if not admin_log %}
+            <p>{% translate 'None available' %}</p>
+        {% else %}
+            <ul class="actionlist">
+                {% for entry in admin_log %}
+                <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %}changelink{% endif %}{% if entry.is_deletion %}deletelink{% endif %}">
+                    {% if entry.is_deletion or not entry.get_admin_url %}
+                        {{ entry.object_repr }}
+                    {% else %}
+                        <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+                    {% endif %}
+                    <br>
+                    {% if entry.content_type %}
+                        <span class="mini quiet">{% filter capfirst %}{{ entry.content_type.name }}{% endfilter %}</span>
+                    {% else %}
+                        <span class="mini quiet">{% translate 'Unknown content' %}</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

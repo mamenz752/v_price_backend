@@ -1,0 +1,39 @@
+{% extends "config/base_layout.html" %}
+{% load static %}
+{% block title %}｜アルゴリズム評価{% endblock title %}
+
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{% static 'feedback/style.css' %}">
+{% endblock extra_head %}
+
+
+{% block layout_contents %}
+    <header>
+        <div class="container">  
+            <nav class="navbar navbar-expand-lg bg-body-tertiary">
+            <div class="container-fluid">
+                <a class="navbar-brand h1" href="{% url 'feedback:feedback' %}">アルゴリズム評価ツール</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a class="nav-link active" aria-current="page" href="{% url 'feedback:feedback' %}">フィードバック</a>
+                        </li>
+                        <li class="nav-item">
+                            <form action="{% url 'accounts:logout' %}" method="post" class="nav-link text-red">
+                                {% csrf_token %}
+                                <button type="submit">ログアウト</button>
+                            </form>
+                        </li>
+                    </ul>
+            </div>
+        </div>
+    </nav>
+    </div>
+    </header>
+    {% block content %}
+    {% endblock content %}
+{% endblock layout_contents %}

@@ -1,0 +1,105 @@
+{% extends 'config/base_feedback.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <h1>アルゴリズム評価ツール</h1>
+
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="{% url 'feedback:chinese_cabbage' %}">はくさい</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'feedback:cabbage' %}">キャベツ</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'feedback:cucumber' %}">きゅうり</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'feedback:tomato' %}">トマト</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'feedback:eggplant' %}">なす</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'feedback:radish' %}">だいこん</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'feedback:potato' %}">ばれいしょ</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'feedback:onion' %}">たまねぎ</a>
+        </li>
+    </ul>
+
+     <div>
+    <h1>
+    {% block v_name %}
+        
+    {% endblock v_name %}</h1>
+            <h2>代表値</h2>
+            <ul class="list-group">
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    補正R2
+                    <span class="badge bg-primary rounded-pill">14</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    標準誤差
+                    <span class="badge bg-primary rounded-pill">2</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    MAE
+                    <span class="badge bg-primary rounded-pill">1</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    RMSE
+                    <span class="badge bg-primary rounded-pill">1</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    有意F
+                    <span class="badge bg-primary rounded-pill">1</span>
+                </li>
+            </ul>
+            <div>
+                <h1>全体評価</h1>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">優良</h5>
+                        <p class="card-text">過去12カ月の予測値の正解率は80%です．しばらくはモデルが使えます．</p>
+                    </div>
+                    </div>
+            </div>
+        </div>
+        <div>
+            <h2>各野菜ごとのロジック</h2>
+            <p>各タブに野菜</p>
+            <p>説明変数テーブル</p>
+            <table>
+                <tr>
+                    <th>説明変数</th>
+                    <th>係数</th>
+                    <th>t値</th>
+                    <th>p値</th>
+                </tr>
+                <tr>
+                    <td>切片</td>
+                    <td>-1.2</td>
+                    <td>-3.5</td>
+                    <td>0.001</td>
+                </tr>
+                <tr>
+                    <td>平均気温</td>
+                    <td>0.5</td>
+                    <td>2.3</td>
+                    <td>0.02</td>
+                </tr>
+                <tr>
+                    <td>降水量</td>
+                    <td>-0.3</td>
+                    <td>-1.8</td>
+                    <td>0.07</td>
+                </tr>
+            </table>
+        </div>
+    </div> 
+{% endblock content %}

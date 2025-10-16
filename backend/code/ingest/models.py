@@ -12,15 +12,17 @@ class TimeStampedModel(models.Model):
 
 class Vegetable(models.Model):
     name = models.CharField(max_length=20)
-    code = models.IntegerField(default=0)
+    code = models.CharField(max_length=10, default='0')  # IntegerFieldからCharFieldに変更
 
     def __str__(self):
         return self.name
     
 class Region(models.Model):
     name = models.CharField(max_length=20)
-    price_code = models.IntegerField(default=0)
-    weather_code = models.IntegerField(default=0)
+    p_area_code = models.CharField(max_length=10, default='0')  # 都道府県コード
+    market_code = models.CharField(max_length=10, default='0')  # 市場コード
+    fuken_code = models.CharField(max_length=10, default='0')   # 県コード
+    station_code = models.CharField(max_length=10, default='0') # 気象庁観測所コード
 
     def __str__(self):
         return self.name
@@ -32,12 +34,22 @@ class IngestMarket(TimeStampedModel):
     medium_price = models.FloatField(null=True, blank=True)
     low_price = models.FloatField(null=True, blank=True)
     average_price = models.FloatField(null=True, blank=True)
+    source_price = models.FloatField(null=True, blank=True)
     arrival_amount = models.FloatField(null=True, blank=True)
     weight_per = models.FloatField(null=True, blank=True)
+    volume = models.FloatField(null=True, blank=True)
+    trend = models.CharField(max_length=10, null=True, blank=True)
     vegetable = models.ForeignKey(
         Vegetable,
         on_delete=models.CASCADE,
         related_name="ingest_markets",
+    )
+    region = models.ForeignKey(
+        Region,
+        on_delete=models.CASCADE,
+        related_name="ingest_markets",
+        null=True,  # 一時的にnullを許可
+        blank=True,  # 一時的に空欄を許可
     )
 
     def __str__(self):

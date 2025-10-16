@@ -1,12 +1,17 @@
 from django.conf import settings
 from django.http import HttpResponse, Http404, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views import View
 from django.views.generic import TemplateView
+from django.contrib import messages
 from azure.storage.blob import BlobServiceClient
 import csv
 from io import StringIO
 import traceback
+import os
+
+from .services import DataIngestor
+from .models import Vegetable, Region
 
 
 def _container_client():
@@ -224,3 +229,112 @@ class WeatherDetailView(View):
             print(f"予期しないエラー: {str(e)}")  # デバッグ用
             print(tb)  # スタックトレースを出力
             raise Http404(f"ファイルの読み込みに失敗しました: {full_name} ({str(e)})")
+
+class ImportPriceView(View):
+    """
+    価格データをインポートするためのビュー
+    """
+    def get(self, request):
+        vegetables = Vegetable.objects.all()
+        return render(request, 'ingest/import_price.html', {'vegetables': vegetables})
+    
+    def post(self, request):
+        try:
+            # リクエストからデータを取得
+            vegetable_id = request.POST.get('vegetable')
+            import_type = request.POST.get('import_type', 'file')  # ファイルまたはディレクトリ
+            
+            vegetable = Vegetable.objects.get(id=vegetable_id)
+            
+            if import_type == 'file':
+                # 単一ファイルのインポート
+                file_path = request.POST.get('file_path')
+                if not file_path:
+                    messages.error(request, 'ファイルパスが指定されていません。')
+                    return redirect('ingest:import_price')
+                
+                market = DataIngestor.import_price_txt(file_path, vegetable)
+                if market and DataIngestor.save_price_data(market):
+                    messages.success(request, f'ファイル {os.path.basename(file_path)} のインポートに成功しました。')
+                else:
+                    messages.error(request, f'ファイル {os.path.basename(file_path)} のインポートに失敗しました。')
+            else:
+                # ディレクトリのインポート
+                directory_path = request.POST.get('directory_path')
+                if not directory_path:
+                    messages.error(request, 'ディレクトリパスが指定されていません。')
+                    return redirect('ingest:import_price')
+                
+                imported_count = DataIngestor.import_price_files_from_dir(directory_path, vegetable)
+                messages.success(request, f'合計 {imported_count} 件のデータをインポートしました。')
+            
+            return redirect('ingest:import_price')
+        except Exception as e:
+            messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
+            return redirect('ingest:import_price')
+
+class ImportWeatherView(View):
+    """
+    天気データをインポートするためのビュー
+    """
+    def get(self, request):
+        regions = Region.objects.all()
+        return render(request, 'ingest/import_weather.html', {'regions': regions})
+    
+    def post(self, request):
+        try:
+            # リクエストからデータを取得
+            region_id = request.POST.get('region')
+            import_type = request.POST.get('import_type', 'file')  # ファイルまたはディレクトリ
+            
+            region = Region.objects.get(id=region_id)
+            
+            if import_type == 'file':
+                # 単一ファイルのインポート
+                file_path = request.POST.get('file_path')
+                if not file_path:
+                    messages.error(request, 'ファイルパスが指定されていません。')
+                    return redirect('ingest:import_weather')
+                
+                weather_objects = DataIngestor.import_weather_csv(file_path, region)
+                saved_count = DataIngestor.save_weather_data(weather_objects)
+                messages.success(request, f'ファイル {os.path.basename(file_path)} から {saved_count} 件のデータをインポートしました。')
+            else:
+                # ディレクトリのインポート
+                directory_path = request.POST.get('directory_path')
+                if not directory_path:
+                    messages.error(request, 'ディレクトリパスが指定されていません。')
+                    return redirect('ingest:import_weather')
+                
+                imported_count = DataIngestor.import_weather_files_from_dir(directory_path, region)
+                messages.success(request, f'合計 {imported_count} 件のデータをインポートしました。')
+            
+            return redirect('ingest:import_weather')
+        except Exception as e:
+            messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
+            return redirect('ingest:import_weather')
+
+class ImportAllDataView(View):
+    """
+    全てのデータを一括インポートするためのビュー
+    """
+    def get(self, request):
+        return render(request, 'ingest/import_all.html')
+    
+    def post(self, request):
+        try:
+            # 価格データをインポート
+            price_results = DataIngestor.import_all_price_data()
+            
+            # 天気データをインポート
+            weather_results = DataIngestor.import_all_weather_data()
+            
+            context = {
+                'price_results': price_results,
+                'weather_results': weather_results,
+            }
+            
+            return render(request, 'ingest/import_results.html', context)
+        except Exception as e:
+            messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
+            return redirect('ingest:import_all')

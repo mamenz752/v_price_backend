@@ -1,0 +1,53 @@
+{% extends "config/base_layout.html" %}
+{% block title %}{% endblock title %}
+
+{% block layout_contents %}
+    <header>
+        <div class="container">  
+            <nav class="navbar navbar-expand-lg bg-body-tertiary">
+            <div class="container-fluid">
+                <a class="navbar-brand h1" href="{% url 'reports:index' %}">野菜価格予測システム</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a class="nav-link active" aria-current="page" href="{% url 'reports:index' %}">トップページ</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'reports:chinese_cabbage' %}">はくさい</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'reports:cabbage' %}">キャベツ</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'reports:cucumber' %}">きゅうり</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'reports:tomato' %}">トマト</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'reports:eggplant' %}">なす</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'reports:radish' %}">だいこん</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'reports:potato' %}">ばれいしょ</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'reports:onion' %}">たまねぎ</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'accounts:login' %}">アルゴリズム評価ツールログイン</a>
+                        </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    </div>
+    </header>
+    {% block contents %}
+    {% endblock contents %}
+{% endblock layout_contents %}

@@ -1,0 +1,111 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}">
+<style>
+    .delete-button {
+        display: block;
+        padding: 15px;
+        background-color: #ba2121;
+        color: white;
+        text-decoration: none;
+        text-align: center;
+        border-radius: 4px;
+        margin: 20px 0;
+        font-size: 16px;
+        font-weight: bold;
+        transition: background-color 0.3s;
+    }
+    .delete-button:hover {
+        background-color: #a41515;
+    }
+    .warning {
+        color: #ba2121;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>{{ title }}</h1>
+    
+    {% if messages %}
+    <ul class="messagelist">
+        {% for message in messages %}
+        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    
+    {% if success %}
+    <div class="module">
+        <h2>削除結果</h2>
+        
+        <ul>
+            {% if deleted_price_count is not None %}
+            <li>価格データ: {{ deleted_price_count }}件 削除</li>
+            {% endif %}
+            {% if deleted_weather_count is not None %}
+            <li>気象データ: {{ deleted_weather_count }}件 削除</li>
+            {% endif %}
+        </ul>
+        
+        <p><a href="{% url 'admin:index' %}" class="button">管理画面に戻る</a></p>
+    </div>
+    {% else %}
+    <div class="module">
+        <h2>データ削除の確認</h2>
+        
+        <p class="warning">警告: この操作は取り消せません。選択したデータは完全に削除されます。</p>
+        
+        <p>現在のデータ件数:</p>
+        <ul>
+            <li>価格データ: {{ price_count }}件</li>
+            <li>気象データ: {{ weather_count }}件</li>
+        </ul>
+        
+        <form method="post">
+            {% csrf_token %}
+            
+            <fieldset class="module aligned">
+                <h2>削除対象の選択</h2>
+                
+                <div class="form-row">
+                    <div>
+                        <label for="delete_price">
+                            <input type="checkbox" name="delete_price" id="delete_price">
+                            価格データを削除
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div>
+                        <label for="delete_weather">
+                            <input type="checkbox" name="delete_weather" id="delete_weather">
+                            気象データを削除
+                        </label>
+                    </div>
+                </div>
+            </fieldset>
+            
+            <div class="submit-row">
+                <input type="submit" value="選択したデータを削除" class="delete-button" name="_delete">
+                <a href="{% url 'admin:index' %}" class="button cancel-link">キャンセル</a>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+    
+    <div class="module">
+        <h2>リンク</h2>
+        <ul>
+            <li><a href="{% url 'admin:ingest_ingestmarket_changelist' %}">価格データ一覧</a></li>
+            <li><a href="{% url 'admin:ingest_ingestweather_changelist' %}">気象データ一覧</a></li>
+            <li><a href="{% url 'admin:index' %}">管理ホーム</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

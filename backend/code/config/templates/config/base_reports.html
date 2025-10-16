@@ -1,53 +1,46 @@
-{% extends "config/base_layout.html" %}
-{% block title %}{% endblock title %}
-
-{% block layout_contents %}
-    <header>
-        <div class="container">  
-            <nav class="navbar navbar-expand-lg bg-body-tertiary">
-            <div class="container-fluid">
-                <a class="navbar-brand h1" href="{% url 'reports:index' %}">野菜価格予測システム</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav">
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>野菜価格予測システム{% block title %}{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header class="bg-dark text-white mb-4">
+        <div class="container py-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between">
+                <div>
+                    <h1 class="h4 mb-0">
+                        <a href="{% url 'reports:index' %}" class="text-white text-decoration-none">野菜価格予測システム</a>
+                    </h1>
+                </div>
+                <nav>
+                    <ul class="nav">
                         <li class="nav-item">
-                            <a class="nav-link active" aria-current="page" href="{% url 'reports:index' %}">トップページ</a>
+                            <a class="nav-link text-white" href="{% url 'reports:index' %}">トップ</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'reports:chinese_cabbage' %}">はくさい</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'reports:cabbage' %}">キャベツ</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'reports:cucumber' %}">きゅうり</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'reports:tomato' %}">トマト</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'reports:eggplant' %}">なす</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'reports:radish' %}">だいこん</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'reports:potato' %}">ばれいしょ</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'reports:onion' %}">たまねぎ</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'accounts:login' %}">アルゴリズム評価ツールログイン</a>
-                        </li>
-                </ul>
+                    </ul>
+                </nav>
             </div>
         </div>
-    </nav>
-    </div>
     </header>
-    {% block contents %}
-    {% endblock contents %}
-{% endblock layout_contents %}
+
+    {% block contents %}{% endblock %}
+    
+    <footer class="bg-light mt-5 py-3">
+        <div class="container">
+            <p class="text-muted text-center mb-0">&copy; 2025 野菜価格予測システム</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

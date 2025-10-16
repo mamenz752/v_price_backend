@@ -60,7 +60,7 @@ def compute_all_view(request):
         )
         messages.success(request, "市場・天気データをComputeテーブルへ反映しました。")
 
-    return TemplateResponse(request, "admin/compute_actions.html", context)
+    return TemplateResponse(request, "compute/compute_actions.html", context)
 
 
 def compute_market_view(request):
@@ -83,7 +83,7 @@ def compute_market_view(request):
         )
         messages.success(request, "市場データをComputeMarketへ反映しました。")
 
-    return TemplateResponse(request, "admin/compute_actions.html", context)
+    return TemplateResponse(request, "compute/compute_actions.html", context)
 
 
 def compute_weather_view(request):
@@ -106,7 +106,7 @@ def compute_weather_view(request):
         )
         messages.success(request, "天気データをComputeWeatherへ反映しました。")
 
-    return TemplateResponse(request, "admin/compute_actions.html", context)
+    return TemplateResponse(request, "compute/compute_actions.html", context)
 
 
 def compute_reset_view(request):
@@ -130,4 +130,4 @@ def compute_reset_view(request):
         )
         messages.success(request, "Computeテーブルのデータを削除しました。")
 
-    return TemplateResponse(request, "admin/compute_actions.html", context)
+    return TemplateResponse(request, "compute/compute_actions.html", context)

@@ -1,4 +1,4 @@
-{% extends "admin/base_site.html" %}
+﻿{% extends "admin/base_site.html" %}
 {% load i18n admin_urls static admin_modify %}
 
 {% block extrastyle %}{{ block.super }}
@@ -21,14 +21,14 @@
         {% csrf_token %}
         
         <fieldset class="module aligned">
-            <h2>インポート設定</h2>
+            <h2>繧､繝ｳ繝昴・繝郁ｨｭ螳・/h2>
             
             {% if is_price_import %}
             <div class="form-row">
                 <div class="fieldBox">
-                    <label for="vegetable">野菜:</label>
+                    <label for="vegetable">驥手除:</label>
                     <select name="vegetable" id="vegetable" required>
-                        <option value="">選択してください</option>
+                        <option value="">驕ｸ謚槭＠縺ｦ縺上□縺輔＞</option>
                         {% for vegetable in vegetables %}
                         <option value="{{ vegetable.id }}">{{ vegetable.name }}</option>
                         {% endfor %}
@@ -40,9 +40,9 @@
             {% if is_weather_import %}
             <div class="form-row">
                 <div class="fieldBox">
-                    <label for="region">地域:</label>
+                    <label for="region">蝨ｰ蝓・</label>
                     <select name="region" id="region" required>
-                        <option value="">選択してください</option>
+                        <option value="">驕ｸ謚槭＠縺ｦ縺上□縺輔＞</option>
                         {% for region in regions %}
                         <option value="{{ region.id }}">{{ region.name }}</option>
                         {% endfor %}
@@ -53,33 +53,33 @@
             
             <div class="form-row">
                 <div class="fieldBox">
-                    <label for="import_type">インポート種類:</label>
+                    <label for="import_type">繧､繝ｳ繝昴・繝育ｨｮ鬘・</label>
                     <select name="import_type" id="import_type">
-                        <option value="file">単一ファイル</option>
-                        <option value="directory">ディレクトリ</option>
+                        <option value="file">蜊倅ｸ繝輔ぃ繧､繝ｫ</option>
+                        <option value="directory">繝・ぅ繝ｬ繧ｯ繝医Μ</option>
                     </select>
                 </div>
             </div>
             
             <div class="form-row" id="file_path_row">
                 <div class="fieldBox">
-                    <label for="file_path">ファイルパス:</label>
+                    <label for="file_path">繝輔ぃ繧､繝ｫ繝代せ:</label>
                     <input type="text" name="file_path" id="file_path" class="vTextField" required>
-                    <div class="help">データディレクトリ内のファイルへの絶対パスを入力してください。</div>
+                    <div class="help">繝・・繧ｿ繝・ぅ繝ｬ繧ｯ繝医Μ蜀・・繝輔ぃ繧､繝ｫ縺ｸ縺ｮ邨ｶ蟇ｾ繝代せ繧貞・蜉帙＠縺ｦ縺上□縺輔＞縲・/div>
                 </div>
             </div>
             
             <div class="form-row" id="directory_path_row" style="display: none;">
                 <div class="fieldBox">
-                    <label for="directory_path">ディレクトリパス:</label>
+                    <label for="directory_path">繝・ぅ繝ｬ繧ｯ繝医Μ繝代せ:</label>
                     <input type="text" name="directory_path" id="directory_path" class="vTextField">
-                    <div class="help">データディレクトリ内のディレクトリへの絶対パスを入力してください。</div>
+                    <div class="help">繝・・繧ｿ繝・ぅ繝ｬ繧ｯ繝医Μ蜀・・繝・ぅ繝ｬ繧ｯ繝医Μ縺ｸ縺ｮ邨ｶ蟇ｾ繝代せ繧貞・蜉帙＠縺ｦ縺上□縺輔＞縲・/div>
                 </div>
             </div>
         </fieldset>
         
         <div class="submit-row">
-            <input type="submit" value="インポート" class="default" name="_import">
+            <input type="submit" value="繧､繝ｳ繝昴・繝・ class="default" name="_import">
         </div>
     </form>
 </div>

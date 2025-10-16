@@ -420,6 +420,129 @@ class MarketDataParser(DataParser):
             logger.error(f"_format_data_to_arrayメソッドでエラーが発生: {str(e)}")
             logger.error(traceback.format_exc())
             return []
+
+    @staticmethod
+    def _use_data_to_array(data):
+        try:
+            if not data or len(data) == 0:
+                logger.warning("データ配列が空です")
+                return None
+                
+            v_code = data[0].get("ItemCode", "")
+            if not v_code:
+                logger.warning("ItemCodeが取得できません")
+                return data[0]  # コードがなくても最初の要素を返す
+                
+            logger.info(f"野菜コード: {v_code}, データ数: {len(data)}")
+            
+            # 野菜コードに基づいて最適なデータを選択
+            if v_code == MarketDataParser.V_CODES[0]:  # キャベツ
+                # キャベツの場合はデフォルトで最初の要素を選択
+                logger.info(f"キャベツ: 最初のデータを選択")
+                return data[0]
+                
+            elif v_code == MarketDataParser.V_CODES[1]:  # ハクサイ
+                # ハクサイの場合はデフォルトで最初の要素を選択
+                logger.info(f"ハクサイ: 最初のデータを選択")
+                return data[0]
+                
+            elif v_code == MarketDataParser.V_CODES[2]:  # ダイコン
+                # 品種名がNullのものを優先
+                for item in data:
+                    if item.get("VarietyName") is None:
+                        logger.info(f"ダイコン: VarietyName=None のデータを選択")
+                        return item
+                # 見つからなければ最初のデータ
+                logger.info(f"ダイコン: 条件に合うデータがないため最初のデータを選択")
+                return data[0]
+                
+            elif v_code == MarketDataParser.V_CODES[3]:  # トマト
+                # グレードA、クラスMのものを優先
+                for item in data:
+                    if item.get("Grade") == "A" and item.get("Class") == "M":
+                        logger.info(f"トマト: Grade=A, Class=M のデータを選択")
+                        return item
+                # 見つからなければ最初のデータ
+                logger.info(f"トマト: 条件に合うデータがないため最初のデータを選択")
+                return data[0]
+                
+            elif v_code == MarketDataParser.V_CODES[4]:  # キュウリ
+                # グレードA、クラスLのものを優先
+                for item in data:
+                    if item.get("Grade") == "A" and item.get("Class") == "L":
+                        logger.info(f"キュウリ: Grade=A, Class=L のデータを選択")
+                        return item
+                # 次にグレードAの最後のデータを探す
+                a_grades = [i for i, item in enumerate(data) if item.get("Grade") == "A"]
+                if a_grades:
+                    last_a = max(a_grades)
+                    logger.info(f"キュウリ: 最後のGrade=A データを選択 (インデックス={last_a})")
+                    return data[last_a]
+                # 次に「ﾕｳ」の最後のデータを探す
+                yu_grades = [i for i, item in enumerate(data) if item.get("Grade") == "ﾕｳ"]
+                if yu_grades:
+                    last_yu = max(yu_grades)
+                    logger.info(f"キュウリ: 最後のGrade=ﾕｳ データを選択 (インデックス={last_yu})")
+                    return data[last_yu]
+                # 見つからなければ最初のデータ
+                logger.info(f"キュウリ: 条件に合うデータがないため最初のデータを選択")
+                return data[0]
+                
+            elif v_code == MarketDataParser.V_CODES[5]:  # ナス
+                # 条件の優先順位に従ってデータを探す
+                for item in data:
+                    if item.get("Class") == "ｺﾞｸｼ":
+                        logger.info(f"ナス: Class=ｺﾞｸｼ のデータを選択")
+                        return item
+                for item in data:
+                    if item.get("Grade") == "C" and item.get("Class") == "M":
+                        logger.info(f"ナス: Grade=C, Class=M のデータを選択")
+                        return item
+                for item in data:
+                    if item.get("Grade") == "A" and item.get("Class") == "15":
+                        logger.info(f"ナス: Grade=A, Class=15 のデータを選択")
+                        return item
+                for item in data:
+                    if item.get("Grade") == "A" and item.get("Class") == "3L":
+                        logger.info(f"ナス: Grade=A, Class=3L のデータを選択")
+                        return item
+                # 見つからなければ最初のデータ
+                logger.info(f"ナス: 条件に合うデータがないため最初のデータを選択")
+                return data[0]
+                
+            elif v_code == MarketDataParser.V_CODES[6]:  # ピーマン
+                # グレードが「ｼﾕｳ」以外のものを探す
+                for item in data:
+                    if item.get("Grade") != "ｼﾕｳ":
+                        logger.info(f"ピーマン: Grade≠ｼﾕｳ のデータを選択")
+                        return item
+                # 見つからなければ最初のデータ
+                logger.info(f"ピーマン: 条件に合うデータがないため最初のデータを選択")
+                return data[0]
+                
+            elif v_code == MarketDataParser.V_CODES[7]:  # ジャガイモ
+                # グレードがNULL以外、クラスとバリエティ名がNULLのデータを探す
+                for item in data:
+                    if (item.get("Grade") is not None and 
+                        item.get("Class") is None and 
+                        item.get("VarietyName") is None):
+                        logger.info(f"ジャガイモ: Grade≠NULL, Class=NULL, VarietyName=NULL のデータを選択")
+                        return item
+                # 見つからなければ最初のデータ
+                logger.info(f"ジャガイモ: 条件に合うデータがないため最初のデータを選択")
+                return data[0]
+                
+            else:
+                # 未対応の野菜コードの場合は、最初のデータを返す
+                logger.warning(f"未対応の野菜コード: {v_code}, 最初のデータを使用")
+                return data[0]
+                
+        except Exception as e:
+            # エラー発生時はログに記録し、配列の最初の要素を返す（存在する場合）
+            logger.error(f"_use_data_to_arrayでエラーが発生: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return data[0] if data and len(data) > 0 else None
     
     @staticmethod
     def _parse_price_objects_pattern_one(data):
@@ -499,9 +622,56 @@ class MarketDataParser(DataParser):
                 price_fields_exist = True
             
             if not price_fields_exist:
-                logger.warning("価格フィールドがありません")
+                logger.warning("価格フィールドがありません、デフォルト値を設定します")
                 logger.info(f"利用可能なキー: {list(data.keys())}")
-                return None
+                # デフォルト値を設定
+                m_price = 100
+                a_price = 100
+                s_price = 100
+                h_price = 100
+                l_price = 0
+                
+                # ItemCodeの処理（必須でない場合はデフォルト値）
+                item_code = data.get("ItemCode", "00000")  # デフォルト値設定
+                logger.info(f"アイテムコード: {item_code}")
+                
+                # WeightPerPackageの処理
+                wpp = data.get("WeightPerPackage", 1)
+                if wpp is None or wpp == 0:
+                    wpp = 1
+                
+                # IncomingVolumeの処理
+                volume = data.get("IncomingVolume", 0)
+                if volume is None:
+                    volume = 0.0
+                
+                # 追加のフィールドを確認（デフォルト値を設定）
+                from datetime import datetime
+                target_date = data.get("TargetDate", datetime.now().strftime("%Y-%m-%d"))
+                grade = data.get("Grade", "")
+                class_val = data.get("Class", "")
+                trend = data.get("MarketTrend", "")
+                variety_name = data.get("VarietyName", "")
+                
+                price = {
+                    "target_date": target_date,
+                    "item_code": item_code,
+                    "high_price": h_price,
+                    "medium_price": m_price,
+                    "low_price": l_price,
+                    "average_price": a_price,
+                    "source_price": s_price,
+                    "arrival_amount": volume,
+                    "weight_per": wpp,
+                    "volume": volume,
+                    "grade": grade,
+                    "class": class_val,
+                    "trend": trend,
+                    "variety_name": variety_name,
+                }
+                
+                logger.info("デフォルト価格データの生成完了")
+                return price
             
             # ItemCodeの処理（必須でない場合はデフォルト値）
             item_code = data.get("ItemCode", "00000")  # デフォルト値設定
@@ -727,12 +897,20 @@ class MarketDataParser(DataParser):
                     # 各データ配列から価格データを解析
                     # デバッグ: データ配列の内容をログに出力
                     if data_array and len(data_array) > 0:
-                        logger.info(f"解析する配列の内容: {data_array[0]}")
-                        
-                    price_data = MarketDataParser._parse_price_objects_pattern_two(data_array[0]) if data_array else None
+                        logger.info(f"解析する配列の要素数: {len(data_array)}")
+                        # データ配列から最適なデータを選択
+                        use_price_data = MarketDataParser._use_data_to_array(data_array)
+                        if not use_price_data:
+                            logger.warning(f"_use_data_to_arrayからの戻り値がありません: {data_array[0]['ItemCode'] if data_array and 'ItemCode' in data_array[0] else '不明'}")
+                            continue
+                        # 選択したデータを解析して価格データに変換
+                        price_data = MarketDataParser._parse_price_objects_pattern_two(use_price_data)
+                    else:
+                        logger.warning("空のデータ配列です")
+                        continue
                     
                     if not price_data:
-                        logger.warning(f"price_dataが取得できませんでした: {data_array[0] if data_array else 'データ配列なし'}")
+                        logger.warning(f"price_dataが取得できませんでした: {use_price_data if use_price_data else 'データなし'}")
                         continue
                     
                     # item_codeに基づいてvegetableを変更

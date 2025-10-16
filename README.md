@@ -193,7 +193,3 @@ docker compose run --rm django-migrate
 ```
 
 このコマンドはAzuriteに接続せずにマイグレーションのみを実行します。
-
-
-
-データ一括削除機能についてバグ確認

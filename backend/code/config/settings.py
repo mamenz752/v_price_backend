@@ -73,6 +73,7 @@ INSTALLED_APPS = [
 
     'accounts.apps.AccountsConfig',
     'ingest.apps.IngestConfig',
+    'compute.apps.ComputeConfig',
     'feedback.apps.FeedbackConfig',
     'reports.apps.ReportsConfig',
 ]

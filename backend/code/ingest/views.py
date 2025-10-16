@@ -253,11 +253,28 @@ class ImportPriceView(View):
                     messages.error(request, 'ファイルパスが指定されていません。')
                     return redirect('ingest:import_price')
                 
-                market = DataIngestor.import_price_txt(file_path, vegetable)
-                if market and DataIngestor.save_price_data(market):
-                    messages.success(request, f'ファイル {os.path.basename(file_path)} のインポートに成功しました。')
-                else:
-                    messages.error(request, f'ファイル {os.path.basename(file_path)} のインポートに失敗しました。')
+                try:
+                    # ファイルの存在確認
+                    if not os.path.exists(file_path):
+                        messages.error(request, f'ファイル {file_path} が存在しません。')
+                        return redirect('ingest:import_price')
+                    
+                    # ファイルからデータを読み込む
+                    markets = DataIngestor.import_price_txt(file_path, vegetable)
+                    print(f"市場データ読み込み結果: {len(markets) if markets else 0}件")
+                    
+                    if markets and len(markets) > 0:
+                        # データを保存
+                        saved_count = DataIngestor.save_price_data(markets)
+                        print(f"データ保存結果: {saved_count}件")
+                        messages.success(request, f'ファイル {os.path.basename(file_path)} から {saved_count}件のデータをインポートしました。')
+                    else:
+                        print("市場データが取得できませんでした。空のリストが返されました。")
+                        messages.error(request, f'ファイル {os.path.basename(file_path)} のインポートに失敗しました。データが取得できません。')
+                except Exception as e:
+                    print(f"価格データインポート中の詳細エラー: {str(e)}")
+                    print(traceback.format_exc())
+                    messages.error(request, f'ファイル {os.path.basename(file_path)} のインポート中にエラー発生: {str(e)}')
             else:
                 # ディレクトリのインポート
                 directory_path = request.POST.get('directory_path')

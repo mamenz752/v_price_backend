@@ -527,11 +527,23 @@ class MarketDataParser(DataParser):
                 logger.info("Volumeが未設定、0.0を使用")
                 volume = 0.0
 
-            # 価格データのログ
+            # 価格データのログと数値変換
             high_price = data.get("HighPrice")
             medium_price = data.get("MediumPrice")
             low_price = data.get("LowPrice")
-            logger.info(f"MediumPrice: {medium_price}, HighPrice: {high_price}, LowPrice: {low_price}")
+            
+            # 文字列からfloatへの変換（stringの場合）
+            try:
+                if isinstance(high_price, str) and high_price.strip():
+                    high_price = float(high_price.replace(',', ''))
+                if isinstance(medium_price, str) and medium_price.strip():
+                    medium_price = float(medium_price.replace(',', ''))
+                if isinstance(low_price, str) and low_price.strip():
+                    low_price = float(low_price.replace(',', ''))
+            except ValueError as e:
+                logger.error(f"価格データの変換エラー: {str(e)}")
+                
+            logger.info(f"変換後 - MediumPrice: {medium_price}, HighPrice: {high_price}, LowPrice: {low_price}")
                 
             # h_price, m_price, l_priceの算出（None、存在しない場合を考慮）
             if (medium_price is None or medium_price == 0) and (high_price is None or high_price == 0) and (low_price is None or low_price == 0):
@@ -542,12 +554,10 @@ class MarketDataParser(DataParser):
                     a_price = m_price
                     logger.info(f"全価格未設定だがAveragePriceを使用: m_price={m_price}, a_price={a_price}")
                 else:
-                    # デフォルト値を設定して処理を続行
-                    m_price = 100  # 仮の価格
-                    a_price = m_price
+                    # 価格データがない場合はデフォルト値を設定
+                    m_price = 100
+                    a_price = 100
                     logger.warning(f"有効な価格データがないためデフォルト値を使用: m_price={m_price}, a_price={a_price}")
-                    # 本番環境では以下のコメントを外す
-                    # return None
             elif medium_price is None or medium_price == 0:
                 # MediumPriceが設定されていない場合
                 if high_price is not None and high_price > 0 and low_price is not None and low_price > 0:
@@ -715,9 +725,14 @@ class MarketDataParser(DataParser):
             for data_array in formatted_data_arrays:
                 try:
                     # 各データ配列から価格データを解析
+                    # デバッグ: データ配列の内容をログに出力
+                    if data_array and len(data_array) > 0:
+                        logger.info(f"解析する配列の内容: {data_array[0]}")
+                        
                     price_data = MarketDataParser._parse_price_objects_pattern_two(data_array[0]) if data_array else None
                     
                     if not price_data:
+                        logger.warning(f"price_dataが取得できませんでした: {data_array[0] if data_array else 'データ配列なし'}")
                         continue
                     
                     # item_codeに基づいてvegetableを変更
@@ -730,7 +745,13 @@ class MarketDataParser(DataParser):
                             # 一致するVegetableがあれば、そちらを使用
                             current_vegetable = matching_vegetable
                             logger.info(f"item_code {item_code} に基づいてvegetableを {current_vegetable.name} に変更しました")
-                    
+
+                    # 広島地域を取得
+                    current_region = Region.objects.filter(name="広島").first()
+                    if not current_region:
+                        logger.error("広島地域が見つかりません")
+                        return []
+
                     market = IngestMarket(
                         target_date=target_date,
                         high_price=price_data.get("high_price"),
@@ -742,7 +763,8 @@ class MarketDataParser(DataParser):
                         weight_per=price_data.get("weight_per"),
                         volume=price_data.get("volume"),
                         trend=price_data.get("trend"),
-                        vegetable=current_vegetable
+                        vegetable=current_vegetable,
+                        region=current_region
                     )
                     markets.append(market)
                 except Exception as e:

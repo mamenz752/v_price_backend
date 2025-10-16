@@ -1,4 +1,4 @@
-﻿{% extends "admin/base_site.html" %}
+{% extends "admin/base_site.html" %}
 {% load i18n admin_urls static %}
 
 {% block extrastyle %}{{ block.super }}
@@ -34,16 +34,16 @@
     
     {% if success %}
     <div class="module">
-        <h2>繧､繝ｳ繝昴・繝育ｵ先棡</h2>
+        <h2>インポート結果</h2>
         
         <div class="results">
-            <h3>萓｡譬ｼ繝・・繧ｿ縺ｮ繧､繝ｳ繝昴・繝育ｵ先棡</h3>
+            <h3>価格データのインポート結果</h3>
             {% if price_results %}
             <table class="results-table">
                 <thead>
                     <tr>
-                        <th>驥手除蜷・/th>
-                        <th>繧､繝ｳ繝昴・繝井ｻｶ謨ｰ</th>
+                        <th>野菜名</th>
+                        <th>インポート件数</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -56,20 +56,20 @@
                 </tbody>
             </table>
             {% else %}
-            <p>繧､繝ｳ繝昴・繝医＆繧後◆萓｡譬ｼ繝・・繧ｿ縺ｯ縺ゅｊ縺ｾ縺帙ｓ縲・/p>
+            <p>インポートされた価格データはありません。</p>
             {% endif %}
         </div>
     </div>
     {% else %}
     <div class="module">
-        <h2>萓｡譬ｼ繝・・繧ｿ繧､繝ｳ繝昴・繝・/h2>
-        <p>縺薙ｌ縺ｯ萓｡譬ｼ繝・・繧ｿ縺ｮ縺ｿ繧剃ｸ諡ｬ縺ｧ繧､繝ｳ繝昴・繝医☆繧区ｩ溯・縺ｧ縺吶ょ・逅・′螳御ｺ・☆繧九∪縺ｧ譎る俣縺後°縺九ｋ蝣ｴ蜷医′縺ゅｊ縺ｾ縺吶・/p>
-        <p class="warning">豕ｨ諢・ 螳溯｡後☆繧句燕縺ｫ縲・㍽闖懊・繝槭せ繧ｿ繝ｼ繝・・繧ｿ縺檎匳骭ｲ縺輔ｌ縺ｦ縺・ｋ縺薙→繧堤｢ｺ隱阪＠縺ｦ縺上□縺輔＞縲・/p>
+        <h2>価格データインポート</h2>
+        <p>これは価格データのみを一括でインポートする機能です。処理が完了するまで時間がかかる場合があります。</p>
+        <p class="warning">注意：実行する前に、野菜のマスターデータが登録されていることを確認してください。</p>
         
         <form method="post">
             {% csrf_token %}
             <div class="submit-row">
-                <input type="submit" value="萓｡譬ｼ繝・・繧ｿ繧偵う繝ｳ繝昴・繝・ class="default" name="_import_price" 
+                <input type="submit" value="価格データをインポート" class="default" name="_import_price" 
                        style="padding: 15px; font-size: 16px; font-weight: bold;">
             </div>
         </form>
@@ -77,19 +77,19 @@
     {% endif %}
     
     <div class="module">
-        <h2>繝倥Ν繝・/h2>
-        <p>繧､繝ｳ繝昴・繝医↓縺ｯ莉･荳九・繝・ぅ繝ｬ繧ｯ繝医Μ縺御ｽｿ逕ｨ縺輔ｌ縺ｾ縺呻ｼ・/p>
+        <h2>ヘルプ</h2>
+        <p>インポートには以下のディレクトリが使用されます：</p>
         <ul>
-            <li>萓｡譬ｼ繝・・繧ｿ: {{ settings.INGEST_ROOT }}/{{ settings.INGEST_PREFIX_PRICE }}</li>
+            <li>価格データ: {{ settings.INGEST_ROOT }}/{{ settings.INGEST_PREFIX_PRICE }}</li>
         </ul>
     </div>
     
     <div class="module">
-        <h2>繝ｪ繝ｳ繧ｯ</h2>
+        <h2>リンク</h2>
         <ul>
-            <li><a href="{% url 'admin:ingest_ingestmarket_changelist' %}">萓｡譬ｼ繝・・繧ｿ荳隕ｧ</a></li>
-            <li><a href="{% url 'admin:ingest_vegetable_changelist' %}">驥手除繝槭せ繧ｿ繝ｼ荳隕ｧ</a></li>
-            <li><a href="{% url 'admin:index' %}">邂｡逅・ヨ繝・・縺ｫ謌ｻ繧・/a></li>
+            <li><a href="{% url 'admin:ingest_ingestmarket_changelist' %}">価格データ一覧</a></li>
+            <li><a href="{% url 'admin:ingest_vegetable_changelist' %}">野菜マスター一覧</a></li>
+            <li><a href="{% url 'admin:index' %}">管理サイトに戻る</a></li>
         </ul>
     </div>
 </div>

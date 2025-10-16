@@ -1,4 +1,4 @@
-﻿{% extends "admin/base_site.html" %}
+{% extends "admin/base_site.html" %}
 {% load i18n admin_urls static %}
 
 {% block extrastyle %}{{ block.super }}
@@ -34,16 +34,16 @@
     
     {% if success %}
     <div class="module">
-        <h2>繧､繝ｳ繝昴・繝育ｵ先棡</h2>
+        <h2>インポート結果</h2>
         
         <div class="results">
-            <h3>螟ｩ豌励ョ繝ｼ繧ｿ縺ｮ繧､繝ｳ繝昴・繝育ｵ先棡</h3>
+            <h3>天気データのインポート結果</h3>
             {% if weather_results %}
             <table class="results-table">
                 <thead>
                     <tr>
-                        <th>蝨ｰ蝓溷錐</th>
-                        <th>繧､繝ｳ繝昴・繝井ｻｶ謨ｰ</th>
+                        <th>地域名</th>
+                        <th>インポート件数</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -56,20 +56,20 @@
                 </tbody>
             </table>
             {% else %}
-            <p>繧､繝ｳ繝昴・繝医＆繧後◆螟ｩ豌励ョ繝ｼ繧ｿ縺ｯ縺ゅｊ縺ｾ縺帙ｓ縲・/p>
+            <p>インポートされた天気データはありません。</p>
             {% endif %}
         </div>
     </div>
     {% else %}
     <div class="module">
-        <h2>螟ｩ豌励ョ繝ｼ繧ｿ繧､繝ｳ繝昴・繝・/h2>
-        <p>縺薙ｌ縺ｯ螟ｩ豌励ョ繝ｼ繧ｿ縺ｮ縺ｿ繧剃ｸ諡ｬ縺ｧ繧､繝ｳ繝昴・繝医☆繧区ｩ溯・縺ｧ縺吶ょ・逅・′螳御ｺ・☆繧九∪縺ｧ譎る俣縺後°縺九ｋ蝣ｴ蜷医′縺ゅｊ縺ｾ縺吶・/p>
-        <p class="warning">豕ｨ諢・ 螳溯｡後☆繧句燕縺ｫ縲∝慍蝓溘・繝槭せ繧ｿ繝ｼ繝・・繧ｿ縺檎匳骭ｲ縺輔ｌ縺ｦ縺・ｋ縺薙→繧堤｢ｺ隱阪＠縺ｦ縺上□縺輔＞縲・/p>
+        <h2>天気データインポート</h2>
+        <p>これは天気データのみを一括でインポートする機能です。処理が完了するまで時間がかかる場合があります。</p>
+        <p class="warning">注意：実行する前に、地域のマスターデータが登録されていることを確認してください。</p>
         
         <form method="post">
             {% csrf_token %}
             <div class="submit-row">
-                <input type="submit" value="螟ｩ豌励ョ繝ｼ繧ｿ繧偵う繝ｳ繝昴・繝・ class="default" name="_import_weather" 
+                <input type="submit" value="天気データをインポート" class="default" name="_import_weather" 
                        style="padding: 15px; font-size: 16px; font-weight: bold;">
             </div>
         </form>
@@ -77,19 +77,19 @@
     {% endif %}
     
     <div class="module">
-        <h2>繝倥Ν繝・/h2>
-        <p>繧､繝ｳ繝昴・繝医↓縺ｯ莉･荳九・繝・ぅ繝ｬ繧ｯ繝医Μ縺御ｽｿ逕ｨ縺輔ｌ縺ｾ縺呻ｼ・/p>
+        <h2>ヘルプ</h2>
+        <p>インポートには以下のディレクトリが使用されます：</p>
         <ul>
-            <li>螟ｩ豌励ョ繝ｼ繧ｿ: {{ settings.INGEST_ROOT }}/{{ settings.INGEST_PREFIX_WEATHER }}</li>
+            <li>天気データ: {{ settings.INGEST_ROOT }}/{{ settings.INGEST_PREFIX_WEATHER }}</li>
         </ul>
     </div>
     
     <div class="module">
-        <h2>繝ｪ繝ｳ繧ｯ</h2>
+        <h2>リンク</h2>
         <ul>
-            <li><a href="{% url 'admin:ingest_ingestweather_changelist' %}">螟ｩ豌励ョ繝ｼ繧ｿ荳隕ｧ</a></li>
-            <li><a href="{% url 'admin:ingest_region_changelist' %}">蝨ｰ蝓溘・繧ｹ繧ｿ繝ｼ荳隕ｧ</a></li>
-            <li><a href="{% url 'admin:index' %}">邂｡逅・ヨ繝・・縺ｫ謌ｻ繧・/a></li>
+            <li><a href="{% url 'admin:ingest_ingestweather_changelist' %}">天気データ一覧</a></li>
+            <li><a href="{% url 'admin:ingest_region_changelist' %}">地域マスター一覧</a></li>
+            <li><a href="{% url 'admin:index' %}">管理サイトに戻る</a></li>
         </ul>
     </div>
 </div>

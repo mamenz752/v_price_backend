@@ -547,11 +547,14 @@ class MarketDataParser(DataParser):
     
     @staticmethod
     def _parse_price_objects_pattern_one(data):
+        logger.info("パターン1での価格データの解析を開始")
         data = data[0]
         item_code = data["ItemCode"]
         wpp = data["WeightPerPackage"]
         if wpp == None:
+            logger.warning(f"WeightPerPackageがNullです。デフォルト値1を使用します。ItemCode={item_code}")
             wpp = 1
+        logger.debug(f"パターン1解析: ItemCode={item_code}, WeightPerPackage={wpp}")
             
         h_price = 0
         m_price = 0
@@ -836,6 +839,7 @@ class MarketDataParser(DataParser):
         """
         テキストファイルから価格データを解析し、IngestMarketオブジェクトのリストを返す
         """
+        logger.info(f"価格データ解析開始: ファイル={file_path}, 野菜={vegetable.name}(ID={vegetable.id})")
         markets = []
         try:
             content = DataParser._parse_txt_file(file_path)
@@ -849,6 +853,8 @@ class MarketDataParser(DataParser):
                 logger.error(f"日付の解析失敗: {file_path}")
                 return []
             
+            logger.info(f"対象日付: {target_date}, ファイル={os.path.basename(file_path)}")
+            
             # デバッグ: コンテンツの先頭部分をログに出力
             if content:
                 sample_content = content[:200].replace('\n', '\\n')
@@ -858,7 +864,7 @@ class MarketDataParser(DataParser):
             try:
                 import json
                 json_data = json.loads(content)
-                logger.info(f"JSONデータの解析成功: {file_path}")
+                logger.info(f"JSONデータの解析成功: {file_path}, データサイズ={len(content)}バイト")
                 
                 # デバッグ: JSONの構造を確認
                 if isinstance(json_data, list):
@@ -966,12 +972,16 @@ class WeatherDataParser(DataParser):
         """
         CSVファイルから天気データを読み込み、IngestWeatherオブジェクトのリストを返す
         """
+        logger.info(f"気象データ解析開始: ファイル={file_path}, 地域={region.name}(ID={region.id})")
         weather_objects = []
         
         try:
             with open(file_path, 'r', encoding='utf-8', errors='replace') as csv_file:
+                logger.info(f"ファイルを開きました: {file_path}")
                 csv_reader = csv.DictReader(csv_file)
+                row_count = 0
                 for row in csv_reader:
+                    row_count += 1
                     try:
                         year = int(row['年'])
                         month = int(row['月'])
@@ -985,6 +995,8 @@ class WeatherDataParser(DataParser):
                         sum_precipitation = float(row['降水量の合計']) if row['降水量の合計'] and row['降水量の合計'] != '--' else None
                         sunshine_duration = float(row['日照時間']) if row['日照時間'] and row['日照時間'] != '--' else None
                         ave_humidity = float(row['平均湿度']) if row['平均湿度'] and row['平均湿度'] != '--' else None
+                        
+                        logger.debug(f"気象データ行解析: 日付={year}/{month}/{day}, 最高気温={max_temp}, 平均気温={mean_temp}, 最低気温={min_temp}")
                         
                         weather = IngestWeather(
                             target_date=target_date,
@@ -1000,6 +1012,8 @@ class WeatherDataParser(DataParser):
                         
                     except (ValueError, KeyError) as e:
                         logger.error(f"天気データの行解析エラー: {row}, {str(e)}")
+                        
+                logger.info(f"気象データCSV解析完了: 行数={row_count}, 作成オブジェクト数={len(weather_objects)}")
         except Exception as e:
             logger.error(f"天気データCSVファイル解析エラー: {file_path}, {str(e)}")
             
@@ -1013,9 +1027,12 @@ class WeatherDataParser(DataParser):
         """
         # ファイル名からmid/lastを判断
         file_name = os.path.basename(file_path)
+        logger.info(f"パターンに基づく気象データCSVの解析開始: ファイル={file_name}, 地域={region.name}(ID={region.id})")
         
         # 通常のCSV解析を実行
-        return WeatherDataParser.parse_weather_csv_to_objects(file_path, region)
+        result = WeatherDataParser.parse_weather_csv_to_objects(file_path, region)
+        logger.info(f"気象データ解析結果: {len(result)}レコードを生成")
+        return result
     
 class DataSaver:
     """

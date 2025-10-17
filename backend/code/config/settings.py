@@ -176,3 +176,82 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # 認証関連の設定
 LOGIN_URL = '/admin/login/'
 LOGIN_REDIRECT_URL = '/admin/'
+
+# ロギング設定
+import os
+import logging.config
+
+# 環境変数からログレベルを取得（デフォルトはINFO）
+DJANGO_LOG_LEVEL = os.environ.get('DJANGO_LOG_LEVEL', 'INFO').upper()
+LOGGING_LEVEL = os.environ.get('LOGGING_LEVEL', 'INFO').upper()
+
+# ログファイルを保存するディレクトリを作成
+os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{asctime} {levelname} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
+            'formatter': 'verbose',
+        },
+        'ingest_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'ingest.log'),
+            'formatter': 'verbose',
+        },
+        'compute_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'compute.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': DJANGO_LOG_LEVEL,
+            'propagate': True,
+        },
+        'ingest': {
+            'handlers': ['console', 'ingest_file'],
+            'level': LOGGING_LEVEL,
+            'propagate': True,
+        },
+        'compute': {
+            'handlers': ['console', 'compute_file'],
+            'level': LOGGING_LEVEL,
+            'propagate': True,
+        },
+        'accounts': {
+            'handlers': ['console', 'file'],
+            'level': LOGGING_LEVEL,
+            'propagate': True,
+        },
+        'feedback': {
+            'handlers': ['console', 'file'],
+            'level': LOGGING_LEVEL,
+            'propagate': True,
+        },
+        'reports': {
+            'handlers': ['console', 'file'],
+            'level': LOGGING_LEVEL,
+            'propagate': True,
+        },
+    },
+}

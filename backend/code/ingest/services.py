@@ -421,6 +421,7 @@ class MarketDataParser(DataParser):
             logger.error(traceback.format_exc())
             return []
 
+    # TODO: データの配列ソート
     @staticmethod
     def _use_data_to_array(data):
         try:

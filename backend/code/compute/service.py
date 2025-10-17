@@ -116,7 +116,8 @@ def _group_market_records(
     
     for record in queryset:
         record_count += 1
-        if record.price is None or record.volume is None:
+        # average_priceとsource_priceのいずれかがある場合は有効なデータとして扱う
+        if (record.average_price is None and record.source_price is None) or record.volume is None:
             skipped_count += 1
             logger.debug(f"無効な市場データをスキップ: ID={record.id}, 野菜ID={record.vegetable_id}, 地域ID={record.region_id}")
             continue

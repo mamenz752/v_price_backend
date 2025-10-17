@@ -56,7 +56,7 @@ class AdminImportMixin:
         """
         インポート画面のテンプレートを返す
         """
-        return 'admin/import_form.html'
+        return 'ingest/admin_import_form.html'
     
     def get_import_context(self, request):
         """
@@ -230,7 +230,7 @@ class IngestAdminSite(admin.AdminSite):
             except Exception as e:
                 messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
         
-        return TemplateResponse(request, 'admin/import_all.html', context)
+        return TemplateResponse(request, 'ingest/admin_import_all.html', context)
         
     def import_price_view(self, request):
         """
@@ -259,7 +259,7 @@ class IngestAdminSite(admin.AdminSite):
             except Exception as e:
                 messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
         
-        return TemplateResponse(request, 'admin/import_price.html', context)
+        return TemplateResponse(request, 'ingest/admin_import_price.html', context)
         
     def import_weather_view(self, request):
         """
@@ -288,7 +288,7 @@ class IngestAdminSite(admin.AdminSite):
             except Exception as e:
                 messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
         
-        return TemplateResponse(request, 'admin/import_weather.html', context)
+        return TemplateResponse(request, 'ingest/admin_import_weather.html', context)
         
     def delete_all_view(self, request):
         """
@@ -308,7 +308,7 @@ class IngestAdminSite(admin.AdminSite):
                 
                 if not delete_price and not delete_weather:
                     messages.warning(request, '削除するデータが選択されていません。')
-                    return TemplateResponse(request, 'admin/delete_all.html', context)
+                    return TemplateResponse(request, 'ingest/admin_delete_all.html', context)
                 
                 price_count = 0
                 weather_count = 0
@@ -331,7 +331,7 @@ class IngestAdminSite(admin.AdminSite):
             except Exception as e:
                 messages.error(request, f'削除処理中にエラーが発生しました: {str(e)}')
         
-        return TemplateResponse(request, 'admin/delete_all.html', context)
+        return TemplateResponse(request, 'ingest/admin_delete_all.html', context)
 
 # カスタム管理サイトを使用するか否かはプロジェクトの要件に応じて変更してください
 # 通常のadmin.siteを使用する場合は、以下のコードをコメントアウトし、

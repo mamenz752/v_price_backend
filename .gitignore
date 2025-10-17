@@ -1,6 +1,8 @@
 .env
 data
 
+docs
+
 # PostgreSQL
 db_data
 

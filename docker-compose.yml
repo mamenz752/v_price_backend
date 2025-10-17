@@ -37,6 +37,11 @@ services:
       POSTGRES_PORT: ${POSTGRES_PORT}
       AZURE_CONNECTION_STRING: ${AZURE_CONNECTION_STRING}
       AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER}
+      LANG: ja_JP.UTF-8
+      LC_ALL: ja_JP.UTF-8
+      LC_CTYPE: ja_JP.UTF-8
+      PYTHONIOENCODING: utf-8
+      PYTHONUNBUFFERED: 1
     ports: ["8000:8000"]
     volumes:
       - ./backend/code:/code
@@ -55,6 +60,10 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
       AZURE_DISABLE: "True"  # Azuriteへの接続を無効化
+      LANG: ja_JP.UTF-8
+      LC_ALL: ja_JP.UTF-8
+      LC_CTYPE: ja_JP.UTF-8
+      PYTHONIOENCODING: utf-8
     volumes:
       - ./backend/code:/code
 

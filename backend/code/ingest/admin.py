@@ -75,6 +75,10 @@ class IngestMarketAdmin(AdminImportMixin, admin.ModelAdmin):
     list_display = ("id", "target_date", "high_price", "medium_price", "low_price", "average_price", "source_price", "arrival_amount", "weight_per", "volume", "trend", "vegetable", "region", "created_at", "updated_at")
     readonly_fields = ("id", "created_at", "updated_at")
     fields = ("target_date", "high_price", "medium_price", "low_price", "average_price", "source_price", "arrival_amount", "weight_per", "volume", "trend", "vegetable", "region", "created_at", "updated_at")
+    # 絞り込み機能を追加
+    list_filter = ("vegetable", "region", "target_date", "trend")
+    # 検索機能を追加
+    search_fields = ("vegetable__name", "region__name", "trend")
     
     def get_import_context(self, request):
         return {
@@ -126,6 +130,10 @@ class IngestWeatherAdmin(AdminImportMixin, admin.ModelAdmin):
     list_display = ("id", "target_date", "max_temp", "mean_temp", "min_temp", "sum_precipitation", "sunshine_duration", "ave_humidity", "region", "created_at", "updated_at")
     readonly_fields = ("id", "created_at", "updated_at")
     fields = ("target_date", "max_temp", "mean_temp", "min_temp", "sum_precipitation", "sunshine_duration", "ave_humidity", "region", "created_at", "updated_at")
+    # 絞り込み機能を追加
+    list_filter = ("region", "target_date")
+    # 検索機能を追加
+    search_fields = ("region__name",)
     
     def get_import_context(self, request):
         return {

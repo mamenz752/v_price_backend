@@ -33,6 +33,7 @@ admin.site.index_template = 'admin/custom_index.html'
 urlpatterns = [
     path('', include('reports.urls')),
     path('ingest/', include('ingest.urls')),
+    path('forecast/', include('forecast.urls')),
     # カスタム管理ビューのURLを admin.site.urls より先に追加して名前解決を確実にする
     path('admin/import-all/', admin.site.admin_view(IngestAdminSite().import_all_view), name='admin_import_all'),
     path('admin/import-price/', admin.site.admin_view(IngestAdminSite().import_price_view), name='admin_import_price'),

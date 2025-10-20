@@ -5,7 +5,7 @@ from typing import Tuple, Dict, List, Optional
 from django.db.models import Q
 import calendar
 from compute.models import ComputeMarket, ComputeWeather
-from forecast.models import ForecastModelKind, ForecastModelVariable, ForecastModelFeatureSet, FeatureSet, SourceFact
+from forecast.models import ForecastModelKind, ForecastModelVariable, ForecastModelFeatureSet
 from ingest.models import Region
 
 class DataHasher:
@@ -34,11 +34,20 @@ class FeatureResolver:
         
     def list_features(self):
         """特徴量のリストを返す"""
-        return []  # 実装は省略
+        # ForecastModelFeatureSetに対応するFeatureListを返す
+        variables = []
+        if isinstance(self.feature_set, ForecastModelFeatureSet):
+            # feature_setに関連する変数を取得
+            variables = [self.feature_set.variable]
+        elif hasattr(self.feature_set, 'all'):
+            # QuerySetの場合は複数の変数を取得
+            variables = [fs.variable for fs in self.feature_set.all()]
+        
+        return variables
 
 class MatrixBuilder:
     """
-    前処理済みDB(SourceFact)から、指定期間・FeatureSetに従った X, y を作る。
+    前処理済みDB(ComputeMarket/ComputeWeather)から、指定期間・ForecastModelFeatureSetに従った X, y を作る。
     - 欠損は完全ケースで落とす（必要に応じて差し替え可）
     - data_hash は X と y をまとめて作成
     """
@@ -48,18 +57,18 @@ class MatrixBuilder:
         self.transforms = transform_registry or TransformRegistry()
         self.hasher = hasher or DataHasher()
 
-    def build(self, feature_set: FeatureSet, period: str, target_col: str
+    def build(self, feature_set: ForecastModelFeatureSet, period: str, target_col: str
               ) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, str]:
         # 1) 対象期間のレコード取得（必要に応じて既存テーブルへ置換可能）
-        qs = (SourceFact.objects
-              .filter(period=period)
-              .values("key", "y", "payload"))
+        qs = (ComputeMarket.objects
+              .filter(target_month=period)
+              .values("id", "average_price", "source_price", "volume"))
         df = pd.DataFrame.from_records(qs)
         if df.empty:
             raise ValueError(f"No data for period={period}")
 
-        # 2) y（目的変数）
-        y = pd.to_numeric(df["y"], errors="coerce").astype(float)
+        # 2) y（目的変数）- average_priceを使用
+        y = pd.to_numeric(df["average_price"], errors="coerce").astype(float)
 
         # 3) X（説明変数）: FeatureSetに忠実に構築
         resolver = FeatureResolver(feature_set)
@@ -68,9 +77,22 @@ class MatrixBuilder:
         cols = []
         x_parts = []
         for f in feats:
-            cols.append(f.col_name)
-            raw = df["payload"].apply(lambda p: (p or {}).get(f.col_name))
-            series = self.transforms.get(f.transform).apply(raw, **(f.params or {}))
+            cols.append(f.name)
+            # 関連する気象データを取得
+            weather_data = ComputeWeather.objects.filter(
+                target_month=period
+            ).values(f.name)
+            
+            # weather_dataからシリーズを作成
+            if weather_data:
+                series = pd.Series([wd.get(f.name) for wd in weather_data])
+            else:
+                series = pd.Series([None] * len(df))
+                
+            # 変換関数を適用（もし定義されていれば）
+            if hasattr(f, 'transform') and f.transform:
+                series = self.transforms.get(f.transform).apply(series, **(getattr(f, 'params', {}) or {}))
+            
             x_parts.append(series)
 
         X = pd.concat(x_parts, axis=1)
@@ -80,7 +102,7 @@ class MatrixBuilder:
         mask = X.notna().all(axis=1) & y.notna()
         X = X[mask].reset_index(drop=True)
         y = y[mask].reset_index(drop=True)
-        raw_df = df.loc[mask, ["key"]].reset_index(drop=True)
+        raw_df = df.loc[mask, ["id"]].reset_index(drop=True)
 
         # 5) ハッシュ（重複実行防止）
         hash_input = pd.concat([X, y.rename("__y__")], axis=1)

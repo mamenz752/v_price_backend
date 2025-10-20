@@ -7,11 +7,59 @@ from django.contrib import messages
 from django.conf import settings
 import os
 from pathlib import Path
+from django.utils import timezone
+import datetime
 
 # Register your models here.
 from django.utils.html import format_html
 from .models import IngestMarket, IngestWeather, Vegetable, Region
 from .services import DataIngestor
+
+class YearListFilter(admin.SimpleListFilter):
+    """target_dateの年でフィルタリングするためのカスタムフィルター"""
+    title = '年'
+    parameter_name = 'year'
+
+    def lookups(self, request, model_admin):
+        # 現在の年から5年前までの年のリストを生成
+        current_year = timezone.now().year
+        years = [(str(year), str(year)) for year in range(current_year-5, current_year+1)]
+        return years
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(target_date__year=self.value())
+        return queryset
+
+class MonthListFilter(admin.SimpleListFilter):
+    """target_dateの月でフィルタリングするためのカスタムフィルター"""
+    title = '月'
+    parameter_name = 'month'
+
+    def lookups(self, request, model_admin):
+        # 1月から12月までのリスト
+        months = [(str(month), str(month)) for month in range(1, 13)]
+        return months
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(target_date__month=self.value())
+        return queryset
+
+class DayListFilter(admin.SimpleListFilter):
+    """target_dateの日でフィルタリングするためのカスタムフィルター"""
+    title = '日'
+    parameter_name = 'day'
+
+    def lookups(self, request, model_admin):
+        # 1日から31日までのリスト
+        days = [(str(day), str(day)) for day in range(1, 32)]
+        return days
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(target_date__day=self.value())
+        return queryset
 
 class AdminImportMixin:
     """
@@ -76,9 +124,11 @@ class IngestMarketAdmin(AdminImportMixin, admin.ModelAdmin):
     readonly_fields = ("id", "created_at", "updated_at")
     fields = ("target_date", "high_price", "medium_price", "low_price", "average_price", "source_price", "arrival_amount", "weight_per", "volume", "trend", "vegetable", "region", "created_at", "updated_at")
     # 絞り込み機能を追加
-    list_filter = ("vegetable", "region", "target_date", "trend")
+    list_filter = ("vegetable", "region", "trend", YearListFilter, MonthListFilter, DayListFilter, "target_date")
     # 検索機能を追加
     search_fields = ("vegetable__name", "region__name", "trend")
+    # 日付でのソート用
+    date_hierarchy = 'target_date'
     
     def get_import_context(self, request):
         return {
@@ -131,9 +181,11 @@ class IngestWeatherAdmin(AdminImportMixin, admin.ModelAdmin):
     readonly_fields = ("id", "created_at", "updated_at")
     fields = ("target_date", "max_temp", "mean_temp", "min_temp", "sum_precipitation", "sunshine_duration", "ave_humidity", "region", "created_at", "updated_at")
     # 絞り込み機能を追加
-    list_filter = ("region", "target_date")
+    list_filter = ("region", YearListFilter, MonthListFilter, DayListFilter, "target_date")
     # 検索機能を追加
     search_fields = ("region__name",)
+    # 日付でのソート用
+    date_hierarchy = 'target_date'
     
     def get_import_context(self, request):
         return {

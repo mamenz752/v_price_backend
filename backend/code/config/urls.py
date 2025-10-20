@@ -31,6 +31,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 admin.site.index_template = 'admin/custom_index.html'
 
 urlpatterns = [
+    path('', include('reports.urls')),
     path('ingest/', include('ingest.urls')),
     # カスタム管理ビューのURLを admin.site.urls より先に追加して名前解決を確実にする
     path('admin/import-all/', admin.site.admin_view(IngestAdminSite().import_all_view), name='admin_import_all'),
@@ -43,6 +44,5 @@ urlpatterns = [
     path('admin/compute/reset/', admin.site.admin_view(compute_reset_view), name='admin_compute_reset'),
     path('admin/', admin.site.urls),
     # ルートURLを管理画面にリダイレクト
-    path('', RedirectView.as_view(url='/admin/', permanent=False), name='index'),
-    path('reports/', include('reports.urls')),
+    # path('', RedirectView.as_view(url='/admin/', permanent=False), name='index'),
 ]

@@ -35,6 +35,7 @@ class ForecastOLSRunner:
     def prepare_regression_data(self, model_name: str, target_month: int, year: int = None) -> tuple:
         """
         回帰分析用のデータを準備する
+        複数年（2021-2025年）のデータを扱うように更新
         
         Args:
             model_name (str): モデル名（例: "キャベツ春まき"）
@@ -56,28 +57,110 @@ class ForecastOLSRunner:
         # 特徴量データフレームを準備
         X_df = forecast_dataset['X']
         
-        # ピボットテーブルを使って特徴量行列を作成
-        X = X_df.pivot_table(
-            index=['model', 'target_month'], 
-            columns=['variable', 'previous_term'],
-            values='value',
-            aggfunc='first'
-        )
+        print(f"DEBUG: prepare_regression_data - X_df shape: {X_df.shape}")
         
-        # マルチインデックスをフラット化
-        X.columns = [f"{col[0]}_{col[1]}" for col in X.columns]
+        try:
+            # 複数年のデータを処理するために、price_yearとprice_halfをインデックスとしたピボットテーブルを作成
+            # 各年のデータが1行となるように変換
+            X = X_df.pivot_table(
+                index=['price_year', 'price_half'],
+                columns=['variable', 'previous_term'],
+                values='value',
+                aggfunc='first'
+            )
+            
+            # マルチインデックスをフラット化
+            X.columns = [f"{col[0]}_{col[1]}" for col in X.columns]
+            
+            print(f"INFO: ピボットテーブル作成成功 - 行数: {X.shape[0]}, 列数: {X.shape[1]}")
+            
+        except Exception as e:
+            # デバッグ情報を出力
+            print(f"ピボットテーブル作成エラー: {str(e)}")
+            print(f"X_df columns: {X_df.columns}")
+            print(f"X_df sample data:\n{X_df.head().to_string()}")
+            
+            # price_yearとprice_halfがない場合のフォールバック
+            if 'price_year' not in X_df.columns:
+                print("警告: price_year列が見つかりません")
+                if 'price' in X_df.columns:
+                    # 価格データに基づいてグループ化
+                    X = X_df.pivot_table(
+                        index=['year', 'half'] if ('year' in X_df.columns and 'half' in X_df.columns) else 'price',
+                        columns=['variable', 'previous_term'],
+                        values='value',
+                        aggfunc='first'
+                    )
+                else:
+                    # 基本的なピボットテーブル
+                    X = X_df.pivot_table(
+                        index=['model', 'target_month'],
+                        columns=['variable', 'previous_term'],
+                        values='value',
+                        aggfunc='first'
+                    )
+            
+            # マルチインデックスをフラット化
+            X.columns = [f"{col[0]}_{col[1]}" for col in X.columns]
         
-        # 目的変数yを取得（平均価格を使用）
-        y = pd.Series(forecast_dataset['Y'].get('average_price', np.nan))
+        # 目的変数yを準備 - 複数年分
+        y_values = {}
+        
+        # forecast_dataset['Y']がリスト（複数年）の場合の処理
+        if isinstance(forecast_dataset['Y'], list):
+            for price_data in forecast_dataset['Y']:
+                if 'average_price' in price_data and 'year' in price_data and 'half' in price_data:
+                    # 年と半期をキーとして使用
+                    key = (price_data['year'], price_data['half'])
+                    y_values[key] = price_data['average_price']
+        else:
+            # 単一のデータ辞書の場合
+            price_data = forecast_dataset['Y']
+            if price_data and 'average_price' in price_data:
+                key = (price_data.get('year', 0), price_data.get('half', '前半'))
+                y_values[key] = price_data['average_price']
+        
+        # Series化
+        y = pd.Series(y_values)
+        
+        print(f"INFO: 目的変数y作成 - データポイント数: {len(y)}")
+        
+        # インデックスの調整（XとYのインデックスを合わせる）
+        common_index = X.index.intersection(y.index)
+        if len(common_index) < len(X):
+            print(f"警告: インデックスの不一致 - 共通: {len(common_index)}, X: {len(X)}, y: {len(y)}")
+        
+        X = X.loc[common_index]
+        y = y.loc[common_index]
         
         # 変数リストを作成
         variable_list = []
         for col in X.columns:
-            var_name, prev_term = col.split('_')
-            variable_list.append({
-                'name': var_name,
-                'previous_term': int(prev_term)
-            })
+            try:
+                # '_'で分割できるか確認
+                parts = col.split('_')
+                if len(parts) == 2:
+                    var_name, prev_term = parts
+                else:
+                    # 複数の'_'がある場合、最後の部分をprev_termとして扱う
+                    var_name = '_'.join(parts[:-1])
+                    prev_term = parts[-1]
+                    
+                variable_list.append({
+                    'name': var_name,
+                    'previous_term': int(prev_term)
+                })
+            except Exception as e:
+                print(f"変数リスト作成エラー（{col}）: {str(e)}")
+                # エラーが発生した場合はスキップ
+                continue
+        
+        # 欠損値を含む行を除外
+        mask = X.notna().all(axis=1)
+        X = X[mask]
+        y = y[mask]
+        
+        print(f"最終データセット - X: {X.shape}, y: {len(y)}")
         
         return X, y, variable_list
 

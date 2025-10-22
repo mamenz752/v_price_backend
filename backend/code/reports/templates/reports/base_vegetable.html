@@ -1,21 +1,76 @@
 {% extends "config/base_reports.html" %}
 
-
 {% block contents %}
 <main>
     <div class="container">
-        <section class="summary">
-            <h4>キャベツ</h4>
-            <div class="card" style="width: 18rem;">
+        <h2>キャベツ</h2>
+        <section class="prediction-summary d-flex gap-4 mb-4">
+            <div class="card w-50">
+                <div class="card-header text-center">
+                    <h5 class="card-subtitle my-2">
+                        OO年XX月の価格予測（/kg）
+                    </h5>
+                </div>
                 <div class="card-body">
                     <h5 class="card-title text-primary">120円</h5>
                     <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
                 </div>
             </div>
+            <div class="card w-50">
+                <div class="card-header text-center">
+                    <h5 class="card-subtitle my-2">
+                        OO年XX月の価格予測（/kg）
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title text-primary">120円</h5>
+                    <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
+                </div>
+            </div>            
+        </section>
+
+        <section class="yesterday-market-summary">
+            <h3>前市集計表（20XX/MM/DD）</h3>
+            <div class="card-summary d-flex gap-4 mb-4">
+                <div class="card w-50">
+                    <div class="card-header text-center">
+                        <h5 class="card-subtitle my-2">
+                            価格（/kg）
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">120円</h5>
+                        <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
+                    </div>
+                </div>
+                <div class="card w-50">
+                    <div class="card-header text-center">
+                        <h5 class="card-subtitle my-2">
+                            前市比
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>5%(19円)↓</h6>
+                    </div>
+                </div>
+                <div class="card w-50">
+                    <div class="card-header text-center">
+                        <h5 class="card-subtitle my-2">
+                            入荷量
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">120円</h5>
+                        <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
+                    </div>
+                </div>
+            </div>
         </section>
         
-        <section class="price-graph">
-            <h4 class="contents-header">{% block graph_title %}{% endblock %}の価格予測</h4>
+        <section class="recently-price-graph">
+            <h4 class="contents-header">キャベツの直近価格変動グラフ</h4>
+            <!-- TODO: ここにグラフ作成 -->
+            <p>ここに作る</p>
             <div class="container">
                 <div class="price_plot">
                     <canvas
@@ -24,6 +79,67 @@
                     ></canvas>
                 </div>
             </div>
+            <!-- TODO: ここにグラフソース元の表を作成 -->
+            <div></div>
+            <!-- <div class="button-group">
+                <button id="toggleHigh" class="button">高値</button>
+                <button id="toggleMedian" class="button">中値</button>
+                <button id="toggleLow" class="button">安値</button>
+                <button id="toggleRecent" class="button">直近価格</button>
+            </div> -->
+        </section>
+
+         <section class="statistics-market-summary">
+            <div class="card-summary d-flex gap-4 mb-4">
+                <div class="card w-50">
+                    <div class="card-header text-center">
+                        <h5 class="card-subtitle my-2">
+                            前年比
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">120円</h5>
+                        <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
+                    </div>
+                </div>
+                <div class="card w-50">
+                    <div class="card-header text-center">
+                        <h5 class="card-subtitle my-2">
+                            前々年比
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>5%(19円)↓</h6>
+                    </div>
+                </div>
+                <div class="card w-50">
+                    <div class="card-header text-center">
+                        <h5 class="card-subtitle my-2">
+                            平年比
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">120円</h5>
+                        <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="predict-price-graph">
+            <h4 class="contents-header">キャベツの価格予測傾向</h4>
+            <!-- TODO: ここにグラフ作成 -->
+            <p>ここに作る</p>
+            <div class="container">
+                <div class="price_plot">
+                    <canvas
+                    id="price"
+                    style="width: 800px; height: 400px;"
+                    ></canvas>
+                </div>
+            </div>
+            <!-- TODO: ここにグラフソース元の表を作成 -->
+            <div></div>
             <!-- <div class="button-group">
                 <button id="toggleHigh" class="button">高値</button>
                 <button id="toggleMedian" class="button">中値</button>
@@ -32,13 +148,27 @@
             </div> -->
         </section>
         
-        <section class="event-calendar">
-            <h4 class="contents-header">{% block calendar_title %}{% endblock %}</h4>
-            <div class="calendar_plot">
-                <div id="calendar"></div>
+        <section class="season-price-graph">
+            <h4 class="contents-header">キャベツの長期価格変動</h4>
+            <!-- TODO: ここにグラフ作成 -->
+            <p>ここに作る</p>
+            <div class="container">
+                <div class="price_plot">
+                    <canvas
+                    id="price"
+                    style="width: 800px; height: 400px;"
+                    ></canvas>
+                </div>
             </div>
+            <!-- TODO: ここにグラフソース元の表を作成 -->
+            <div></div>
+            <!-- <div class="button-group">
+                <button id="toggleHigh" class="button">高値</button>
+                <button id="toggleMedian" class="button">中値</button>
+                <button id="toggleLow" class="button">安値</button>
+                <button id="toggleRecent" class="button">直近価格</button>
+            </div> -->
         </section>
-                
     </div>
 </main>
 {% endblock contents %}

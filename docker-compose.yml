@@ -42,6 +42,8 @@ services:
       LC_CTYPE: ja_JP.UTF-8
       PYTHONIOENCODING: utf-8
       PYTHONUNBUFFERED: 1
+      DJANGO_LOG_LEVEL: INFO
+      LOGGING_LEVEL: INFO
     ports: ["8000:8000"]
     volumes:
       - ./backend/code:/code

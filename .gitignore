@@ -7,3 +7,5 @@ docs
 db_data
 
 __pycache__
+
+logs

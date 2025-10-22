@@ -208,62 +208,66 @@ class MarketDataParser(DataParser):
     """
     # FIXME: なぜか中央卸売市場はDB参照で，野菜コードは直書き
     ALL_V_KINDS_NUMBER = 56
-    V_CODES = ['31700', '31100', '30100', '36600', '36200', '34400', '34300', '34100']
+    V_CODES = ['30100', '31100', '31700', '34100', '34300', '34400', '36200', '36600']
+    # V_CODES = ['31700', '31100', '30100', '36600', '36200', '34400', '34300', '34100']
 
     @staticmethod
     def _sort_data(data):
         try:
+            m_data = data["Markets"]
             logger.info("_sort_dataメソッド処理開始")
-            import json
             logger.debug(f"データタイプ: {type(data)}")
             
             # JSONデータの構造を柔軟に扱うためのデータ正規化
             markets_data = None
             
             # データ構造の検出と正規化
-            if isinstance(data, list) and len(data) > 0:
-                # リスト形式の場合
-                logger.info("データはリスト形式です")
-                first_item = data[0]
-                if isinstance(first_item, dict):
-                    # リストの最初の要素がオブジェクトの場合
-                    if "Markets" in first_item:
-                        markets_data = first_item.get("Markets", [])
-                        logger.info(f"リストの最初の要素からMarketsを抽出: {len(markets_data)}件")
-                    else:
-                        # Markets直下の要素がリストの場合
-                        logger.info(f"データはマーケットのリストとして処理")
-                        markets_data = data
+            if isinstance(data, dict):
+                markets_data = data.get("Markets", [])
+            # FIXME: 不要なコードの削除
+            # if isinstance(m_data, list) and len(data) > 0:
+            #     # リスト形式の場合
+            #     logger.info("データはリスト形式です")
+            #     first_item = data[0]
+            #     if isinstance(first_item, dict):
+            #         # リストの最初の要素がオブジェクトの場合
+            #         if "Markets" in first_item:
+            #             markets_data = first_item.get("Markets", [])
+            #             logger.info(f"リストの最初の要素からMarketsを抽出: {len(markets_data)}件")
+            #         else:
+            #             # Markets直下の要素がリストの場合
+            #             logger.info(f"データはマーケットのリストとして処理")
+            #             markets_data = data
             
-            elif isinstance(data, dict):
-                # 辞書形式の場合
-                logger.info("データは辞書形式です")
-                # 利用可能なキーをログ
-                top_keys = list(data.keys())
-                logger.info(f"トップレベルのキー: {top_keys}")
+            # elif isinstance(m_data, dict):
+            #     # 辞書形式の場合
+            #     logger.info("データは辞書形式です")
+            #     # 利用可能なキーをログ
+            #     top_keys = list(data.keys())
+            #     logger.info(f"トップレベルのキー: {top_keys}")
                 
-                # 直接Marketsキーがある場合
-                if "Markets" in data:
-                    markets_data = data.get("Markets", [])
-                    logger.info(f"ルート辞書からMarketsを抽出: {len(markets_data)}件")
-                # データが直接マーケットリストである場合
-                elif "MarketCode" in data:
-                    logger.info("データは単一市場データとして処理")
-                    markets_data = [data]
-                # 他の階層構造の場合
-                else:
-                    for key in data:
-                        if isinstance(data[key], dict) and "Markets" in data[key]:
-                            markets_data = data[key].get("Markets", [])
-                            logger.info(f"ネストされた辞書からMarketsを抽出: {len(markets_data)}件")
-                            break
-                        elif isinstance(data[key], list) and len(data[key]) > 0:
-                            # リスト内の最初の要素を確認
-                            sample = data[key][0]
-                            if isinstance(sample, dict) and "MarketCode" in sample:
-                                markets_data = data[key]
-                                logger.info(f"ネストされたリストからマーケットを抽出: {len(markets_data)}件")
-                                break
+            #     # 直接Marketsキーがある場合
+            #     if "Markets" in data:
+            #         markets_data = data.get("Markets", [])
+            #         logger.info(f"ルート辞書からMarketsを抽出: {len(markets_data)}件")
+            #     # データが直接マーケットリストである場合
+            #     elif "MarketCode" in data:
+            #         logger.info("データは単一市場データとして処理")
+            #         markets_data = [data]
+            #     # 他の階層構造の場合
+            #     else:
+            #         for key in data:
+            #             if isinstance(data[key], dict) and "Markets" in data[key]:
+            #                 markets_data = data[key].get("Markets", [])
+            #                 logger.info(f"ネストされた辞書からMarketsを抽出: {len(markets_data)}件")
+            #                 break
+            #             elif isinstance(data[key], list) and len(data[key]) > 0:
+            #                 # リスト内の最初の要素を確認
+            #                 sample = data[key][0]
+            #                 if isinstance(sample, dict) and "MarketCode" in sample:
+            #                     markets_data = data[key]
+            #                     logger.info(f"ネストされたリストからマーケットを抽出: {len(markets_data)}件")
+            #                     break
             
             # マーケットデータが見つからなかった場合
             if not markets_data:
@@ -432,13 +436,13 @@ class MarketDataParser(DataParser):
             v_code = data[0].get("ItemCode", "")
             if not v_code:
                 logger.warning("ItemCodeが取得できません")
-                return data[0]  # コードがなくても最初の要素を返す
+                return None  # 条件に合わない場合はNoneを返す
                 
             logger.info(f"野菜コード: {v_code}, データ数: {len(data)}")
             
             # 野菜コードに基づいて最適なデータを選択
-            if v_code == MarketDataParser.V_CODES[0]:  # キャベツ
-                # キャベツの場合はデフォルトで最初の要素を選択
+            if v_code == MarketDataParser.V_CODES[0]:  # ダイコン
+                # ダイコンの場合はデフォルトで最初の要素を選択
                 logger.info(f"キャベツ: 最初のデータを選択")
                 return data[0]
                 
@@ -447,27 +451,27 @@ class MarketDataParser(DataParser):
                 logger.info(f"ハクサイ: 最初のデータを選択")
                 return data[0]
                 
-            elif v_code == MarketDataParser.V_CODES[2]:  # ダイコン
+            elif v_code == MarketDataParser.V_CODES[2]:  # キャベツ
                 # 品種名がNullのものを優先
                 for item in data:
                     if item.get("VarietyName") is None:
                         logger.info(f"ダイコン: VarietyName=None のデータを選択")
                         return item
-                # 見つからなければ最初のデータ
-                logger.info(f"ダイコン: 条件に合うデータがないため最初のデータを選択")
-                return data[0]
+                # 条件に合うものがなければNoneを返す
+                logger.info(f"ダイコン: 条件に合うデータがないためNoneを返す")
+                return None
                 
-            elif v_code == MarketDataParser.V_CODES[3]:  # トマト
+            elif v_code == MarketDataParser.V_CODES[3]:  # きゅうり
                 # グレードA、クラスMのものを優先
                 for item in data:
                     if item.get("Grade") == "A" and item.get("Class") == "M":
                         logger.info(f"トマト: Grade=A, Class=M のデータを選択")
                         return item
-                # 見つからなければ最初のデータ
-                logger.info(f"トマト: 条件に合うデータがないため最初のデータを選択")
-                return data[0]
+                # 条件に合うものがなければNoneを返す
+                logger.info(f"トマト: 条件に合うデータがないためNoneを返す")
+                return None
                 
-            elif v_code == MarketDataParser.V_CODES[4]:  # キュウリ
+            elif v_code == MarketDataParser.V_CODES[4]:  # なす
                 # グレードA、クラスLのものを優先
                 for item in data:
                     if item.get("Grade") == "A" and item.get("Class") == "L":
@@ -485,11 +489,11 @@ class MarketDataParser(DataParser):
                     last_yu = max(yu_grades)
                     logger.info(f"キュウリ: 最後のGrade=ﾕｳ データを選択 (インデックス={last_yu})")
                     return data[last_yu]
-                # 見つからなければ最初のデータ
-                logger.info(f"キュウリ: 条件に合うデータがないため最初のデータを選択")
-                return data[0]
+                # 条件に合うものがなければNoneを返す
+                logger.info(f"キュウリ: 条件に合うデータがないためNoneを返す")
+                return None
                 
-            elif v_code == MarketDataParser.V_CODES[5]:  # ナス
+            elif v_code == MarketDataParser.V_CODES[5]:  # トマト
                 # 条件の優先順位に従ってデータを探す
                 for item in data:
                     if item.get("Class") == "ｺﾞｸｼ":
@@ -507,21 +511,21 @@ class MarketDataParser(DataParser):
                     if item.get("Grade") == "A" and item.get("Class") == "3L":
                         logger.info(f"ナス: Grade=A, Class=3L のデータを選択")
                         return item
-                # 見つからなければ最初のデータ
-                logger.info(f"ナス: 条件に合うデータがないため最初のデータを選択")
-                return data[0]
+                # 条件に合うものがなければNoneを返す
+                logger.info(f"ナス: 条件に合うデータがないためNoneを返す")
+                return None
                 
-            elif v_code == MarketDataParser.V_CODES[6]:  # ピーマン
+            elif v_code == MarketDataParser.V_CODES[6]:  # ばれいしょ
                 # グレードが「ｼﾕｳ」以外のものを探す
                 for item in data:
                     if item.get("Grade") != "ｼﾕｳ":
                         logger.info(f"ピーマン: Grade≠ｼﾕｳ のデータを選択")
                         return item
-                # 見つからなければ最初のデータ
-                logger.info(f"ピーマン: 条件に合うデータがないため最初のデータを選択")
-                return data[0]
+                # 条件に合うものがなければNoneを返す
+                logger.info(f"ピーマン: 条件に合うデータがないためNoneを返す")
+                return None
                 
-            elif v_code == MarketDataParser.V_CODES[7]:  # ジャガイモ
+            elif v_code == MarketDataParser.V_CODES[7]:  # 玉ねぎ
                 # グレードがNULL以外、クラスとバリエティ名がNULLのデータを探す
                 for item in data:
                     if (item.get("Grade") is not None and 
@@ -529,29 +533,32 @@ class MarketDataParser(DataParser):
                         item.get("VarietyName") is None):
                         logger.info(f"ジャガイモ: Grade≠NULL, Class=NULL, VarietyName=NULL のデータを選択")
                         return item
-                # 見つからなければ最初のデータ
-                logger.info(f"ジャガイモ: 条件に合うデータがないため最初のデータを選択")
-                return data[0]
+                # 条件に合うものがなければNoneを返す
+                logger.info(f"ジャガイモ: 条件に合うデータがないためNoneを返す")
+                return None
                 
             else:
-                # 未対応の野菜コードの場合は、最初のデータを返す
-                logger.warning(f"未対応の野菜コード: {v_code}, 最初のデータを使用")
-                return data[0]
+                # 未対応の野菜コードの場合は、Noneを返す
+                logger.warning(f"未対応の野菜コード: {v_code}, Noneを返す")
+                return None
                 
         except Exception as e:
-            # エラー発生時はログに記録し、配列の最初の要素を返す（存在する場合）
+            # エラー発生時はログに記録し、Noneを返す
             logger.error(f"_use_data_to_arrayでエラーが発生: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
-            return data[0] if data and len(data) > 0 else None
+            return None
     
     @staticmethod
     def _parse_price_objects_pattern_one(data):
+        logger.info("パターン1での価格データの解析を開始")
         data = data[0]
         item_code = data["ItemCode"]
         wpp = data["WeightPerPackage"]
         if wpp == None:
+            logger.warning(f"WeightPerPackageがNullです。デフォルト値1を使用します。ItemCode={item_code}")
             wpp = 1
+        logger.debug(f"パターン1解析: ItemCode={item_code}, WeightPerPackage={wpp}")
             
         h_price = 0
         m_price = 0
@@ -834,8 +841,9 @@ class MarketDataParser(DataParser):
     @staticmethod
     def parse_price_txt_to_object(file_path: str, vegetable: Vegetable) -> List[IngestMarket]:
         """
-        テキストファイルから価格データを解析し、IngestMarketオブジェクトのリストを返す
+        テキストファイルから価格データを解析し、条件に合致するIngestMarketオブジェクトのリストを返す
         """
+        logger.info(f"価格データ解析開始: ファイル={file_path}, 野菜={vegetable.name}(ID={vegetable.id})")
         markets = []
         try:
             content = DataParser._parse_txt_file(file_path)
@@ -849,6 +857,8 @@ class MarketDataParser(DataParser):
                 logger.error(f"日付の解析失敗: {file_path}")
                 return []
             
+            logger.info(f"対象日付: {target_date}, ファイル={os.path.basename(file_path)}")
+            
             # デバッグ: コンテンツの先頭部分をログに出力
             if content:
                 sample_content = content[:200].replace('\n', '\\n')
@@ -858,7 +868,7 @@ class MarketDataParser(DataParser):
             try:
                 import json
                 json_data = json.loads(content)
-                logger.info(f"JSONデータの解析成功: {file_path}")
+                logger.info(f"JSONデータの解析成功: {file_path}, データサイズ={len(content)}バイト")
                 
                 # デバッグ: JSONの構造を確認
                 if isinstance(json_data, list):
@@ -899,10 +909,10 @@ class MarketDataParser(DataParser):
                     # デバッグ: データ配列の内容をログに出力
                     if data_array and len(data_array) > 0:
                         logger.info(f"解析する配列の要素数: {len(data_array)}")
-                        # データ配列から最適なデータを選択
+                        # データ配列から条件に合致するデータを選択（条件に合わない場合はNoneが返される）
                         use_price_data = MarketDataParser._use_data_to_array(data_array)
                         if not use_price_data:
-                            logger.warning(f"_use_data_to_arrayからの戻り値がありません: {data_array[0]['ItemCode'] if data_array and 'ItemCode' in data_array[0] else '不明'}")
+                            logger.info(f"条件に合致するデータがありません: {data_array[0]['ItemCode'] if data_array and 'ItemCode' in data_array[0] else '不明'}")
                             continue
                         # 選択したデータを解析して価格データに変換
                         price_data = MarketDataParser._parse_price_objects_pattern_two(use_price_data)
@@ -946,10 +956,12 @@ class MarketDataParser(DataParser):
                         region=current_region
                     )
                     markets.append(market)
+                    logger.info(f"野菜 {current_vegetable.name} (code: {current_vegetable.code}) の条件に合致するデータを追加しました")
                 except Exception as e:
                     logger.error(f"個別の価格データ解析エラー: {str(e)}")
                     continue
             
+            logger.info(f"条件に合致するデータ数: {len(markets)} / {len(formatted_data_arrays) if formatted_data_arrays else 0}")
             return markets
                 
         except Exception as e:
@@ -966,12 +978,16 @@ class WeatherDataParser(DataParser):
         """
         CSVファイルから天気データを読み込み、IngestWeatherオブジェクトのリストを返す
         """
+        logger.info(f"気象データ解析開始: ファイル={file_path}, 地域={region.name}(ID={region.id})")
         weather_objects = []
         
         try:
             with open(file_path, 'r', encoding='utf-8', errors='replace') as csv_file:
+                logger.info(f"ファイルを開きました: {file_path}")
                 csv_reader = csv.DictReader(csv_file)
+                row_count = 0
                 for row in csv_reader:
+                    row_count += 1
                     try:
                         year = int(row['年'])
                         month = int(row['月'])
@@ -985,6 +1001,8 @@ class WeatherDataParser(DataParser):
                         sum_precipitation = float(row['降水量の合計']) if row['降水量の合計'] and row['降水量の合計'] != '--' else None
                         sunshine_duration = float(row['日照時間']) if row['日照時間'] and row['日照時間'] != '--' else None
                         ave_humidity = float(row['平均湿度']) if row['平均湿度'] and row['平均湿度'] != '--' else None
+                        
+                        logger.debug(f"気象データ行解析: 日付={year}/{month}/{day}, 最高気温={max_temp}, 平均気温={mean_temp}, 最低気温={min_temp}")
                         
                         weather = IngestWeather(
                             target_date=target_date,
@@ -1000,6 +1018,8 @@ class WeatherDataParser(DataParser):
                         
                     except (ValueError, KeyError) as e:
                         logger.error(f"天気データの行解析エラー: {row}, {str(e)}")
+                        
+                logger.info(f"気象データCSV解析完了: 行数={row_count}, 作成オブジェクト数={len(weather_objects)}")
         except Exception as e:
             logger.error(f"天気データCSVファイル解析エラー: {file_path}, {str(e)}")
             
@@ -1013,9 +1033,12 @@ class WeatherDataParser(DataParser):
         """
         # ファイル名からmid/lastを判断
         file_name = os.path.basename(file_path)
+        logger.info(f"パターンに基づく気象データCSVの解析開始: ファイル={file_name}, 地域={region.name}(ID={region.id})")
         
         # 通常のCSV解析を実行
-        return WeatherDataParser.parse_weather_csv_to_objects(file_path, region)
+        result = WeatherDataParser.parse_weather_csv_to_objects(file_path, region)
+        logger.info(f"気象データ解析結果: {len(result)}レコードを生成")
+        return result
     
 class DataSaver:
     """
@@ -1607,14 +1630,24 @@ class DataIngestor:
                     return False
                 
                 success = False
+                saved_count = 0
+                total_count = len(formatted_data_arrays)
+                
                 for data_array in formatted_data_arrays:
                     if not data_array:
                         continue
                         
-                    # 各データ配列から価格データを解析
-                    price_data = MarketDataParser._parse_price_objects_pattern_two(data_array[0])
+                    # データ配列から条件に合致するデータを選択（条件に合わない場合はNoneが返される）
+                    use_price_data = MarketDataParser._use_data_to_array(data_array)
+                    if not use_price_data:
+                        logger.info(f"条件に合致するデータがありません: {data_array[0]['ItemCode'] if data_array and 'ItemCode' in data_array[0] else '不明'}")
+                        continue
+                        
+                    # 選択したデータを解析して価格データに変換
+                    price_data = MarketDataParser._parse_price_objects_pattern_two(use_price_data)
                     
                     if not price_data:
+                        logger.warning(f"price_dataが取得できませんでした")
                         continue
                     
                     # item_codeに基づいてvegetableを変更
@@ -1625,6 +1658,13 @@ class DataIngestor:
                         matching_vegetable = Vegetable.objects.filter(code=item_code).first()
                         if matching_vegetable:
                             current_vegetable = matching_vegetable
+                            logger.info(f"item_code {item_code} に基づいてvegetableを {current_vegetable.name} に変更しました")
+                    
+                    # 広島地域を取得
+                    current_region = Region.objects.filter(name="広島").first()
+                    if not current_region:
+                        logger.error("広島地域が見つかりません")
+                        continue
                     
                     market = IngestMarket(
                         target_date=target_date,
@@ -1637,13 +1677,17 @@ class DataIngestor:
                         weight_per=price_data.get("weight_per"),
                         volume=price_data.get("volume"),
                         trend=price_data.get("trend"),
-                        vegetable=current_vegetable
+                        vegetable=current_vegetable,
+                        region=current_region
                     )
                     
                     # 保存
                     if DataSaver.save_price_data(market) > 0:
+                        saved_count += 1
                         success = True
+                        logger.info(f"野菜 {current_vegetable.name} の条件に合致するデータを保存しました")
                 
+                logger.info(f"条件に合致するデータ数: {saved_count} / {total_count}")
                 return success
                 
             except Exception as e:

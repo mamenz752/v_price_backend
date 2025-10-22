@@ -31,9 +31,10 @@ docker system prune -a --volumes
 1. テキストファイルからの野菜価格データのインポート (ingestアプリ)
 2. CSVファイルからの気象データのインポート (ingestアプリ)
 3. 取り込んだデータの半月単位での集計 (computeアプリ)
-4. 管理画面からのデータインポート・集計機能
-5. ユーザー認証・管理 (accountsアプリ)
-6. レポート作成 (今後拡張予定)
+4. 野菜価格の予測機能 (forecastアプリ)
+5. 管理画面からのデータインポート・集計・予測機能
+6. ユーザー認証・管理 (accountsアプリ)
+7. レポート作成 (reportsアプリ)
 
 ## 詳細ドキュメント
 
@@ -42,6 +43,7 @@ docker system prune -a --volumes
 - [データモデル概要](docs/data_models.md)
 - [インポートシステムの解説](docs/import_system.md)
 - [データ集計処理の解説](docs/compute_system.md)
+- [価格予測システムの解説](docs/forecast_system.md)
 - [システムアーキテクチャ](docs/architecture.md)
 - [開発者ガイド](docs/developer_guide.md)
 
@@ -53,10 +55,18 @@ docker system prune -a --volumes
 │   ├── Dockerfile         # Djangoアプリ用Dockerfile
 │   ├── requirements.txt   # Pythonパッケージ依存関係
 │   └── code/              # Djangoアプリケーションコード
+│       ├── accounts/      # ユーザー管理アプリ
+│       ├── compute/       # データ集計アプリ
+│       ├── config/        # Django設定
+│       ├── feedback/      # フィードバックアプリ
+│       ├── forecast/      # 価格予測アプリ
+│       ├── ingest/        # データ取込アプリ
+│       └── reports/       # レポート生成アプリ
 ├── data/                  # データファイル
 │   ├── price/             # 野菜価格データ
 │   └── weather/           # 気象データ
 ├── db_data/               # PostgreSQLデータ
+├── docs/                  # プロジェクト文書
 └── docker-compose.yml     # Docker Compose設定
 ```
 
@@ -73,6 +83,15 @@ docker system prune -a --volumes
 
 - **ComputeMarket**: 半月単位の市場データ集計
 - **ComputeWeather**: 半月単位の気象データ集計
+
+### forecastアプリ - 予測モデル
+
+- **ForecastModelKind**: 予測モデルの種類（タグ名、対象野菜）
+- **ForecastModelVariable**: 予測モデルの変数（名前、前期間）
+- **ForecastModelFeatureSet**: 予測モデルの特徴セット（対象月、モデル種類、変数）
+- **ForecastModelVersion**: 予測モデルのバージョン（対象月、アクティブ状態、モデル種類）
+- **ForecastModelCoef**: 予測モデルの係数（変数、係数、統計値）
+- **ForecastModelEvaluation**: 予測モデルの評価指標（相関係数、R二乗、RMSE等）
 
 ## データフロー
 
@@ -96,11 +115,17 @@ docker system prune -a --volumes
    - 天気データのみの集計
    - 集計データのリセット
 
-3. マスターデータ管理
+3. 予測モデル管理
+   - 予測モデル種類の管理
+   - 予測モデル変数の管理
+   - 予測モデル特徴セットの管理
+   - 予測モデルバージョンの管理
+   - 予測モデル係数の管理
+   - 予測モデル評価指標の管理
+
+4. マスターデータ管理
    - 野菜マスター
    - 地域マスター
-
-## トラブルシューティング
 
 ## 運用とメンテナンス
 
@@ -114,9 +139,9 @@ docker compose run --rm django-migrate
 
 このコマンドはAzuriteに接続せずにマイグレーションのみを実行します。
 
-### トラブルシューティング
+### 一般的なトラブルシューティング
 
-**データベース接続エラー**
+#### データベース接続エラー
 
 PostgreSQLコンテナが起動しているか確認:
 
@@ -124,7 +149,7 @@ PostgreSQLコンテナが起動しているか確認:
 docker compose ps
 ```
 
-**ファイルインポートエラー**
+#### ファイルインポートエラー
 
 ログを確認:
 
@@ -132,7 +157,7 @@ docker compose ps
 docker compose logs web
 ```
 
-**管理画面アクセスエラー**
+#### 管理画面アクセスエラー
 
 マイグレーションが実行されているか確認:
 

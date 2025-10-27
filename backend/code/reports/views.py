@@ -38,30 +38,14 @@ def _veg_context(veg_lookup_name: str, display_name: str):
     source_price = latest.source_price if latest and hasattr(latest, 'source_price') else None
     volume = latest.volume if latest and hasattr(latest, 'volume') else None
 
-    markets = qs[:14]
+    markets = list(qs[:14].values())  # リストとして評価
     context.update({
         'recent_date': latest.target_date if latest else None,
         'source_price': source_price,
         'volume': volume,
-        'recently_price_data': json.dumps(list(markets.values()), cls=DjangoJSONEncoder),
+        'recently_price_data': json.dumps(markets, cls=DjangoJSONEncoder),  # JSONデータ用
+        'markets': markets,  # テーブル表示用
     })
-    # prepare 2-week series: arrival (bar) and price (line)
-    # FIXME: 以下コメントアウトを解除
-    # two_weeks_ago = date.today() - timedelta(days=14)
-    # FIXME: 以下コードを削除
-    two_weeks_ago = date(2025, 7, 31) - timedelta(days=14)
-
-    qs_2w = IngestMarket.objects.filter(vegetable=vegetable, target_date__gte=two_weeks_ago).order_by('target_date')
-    series = []
-    for m in qs_2w:
-        series.append({
-            'target_date': m.target_date.isoformat(),
-            'volume': m.volume,
-            # Use source_price specifically for the 2-week chart as requested
-            'price': m.source_price,
-            'volume': m.volume,
-        })
-    context['recent_2weeks_json'] = json.dumps(series, cls=DjangoJSONEncoder)
 
     return context
 

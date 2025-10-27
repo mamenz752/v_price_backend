@@ -14,9 +14,7 @@
  This file is intentionally small and dependency-free except for Chart.js.
 */
 
-const MAX_DAYS = 15;
-
-function renderTwoWeekComboChartConfig(twoWeekData) {
+function renderRecentlyPriceGraphConfig(twoWeekData) {
     if (typeof Chart === 'undefined') {
         console.warn('[recentlyPriceGraph] Chart.js not loaded.');
         return null;
@@ -35,10 +33,10 @@ function renderTwoWeekComboChartConfig(twoWeekData) {
     }
 
     // Ensure chronological order (oldest-first)
-    const chartLabels = labels.slice();
-    const volumeData = volumes.slice();
-    const priceData = prices.slice();
-    
+    const chartLabels = labels.slice().reverse();
+    const volumeData = volumes.slice().reverse();
+    const priceData = prices.slice().reverse();
+
     const cfg = {
         data: {
             labels: chartLabels,
@@ -92,4 +90,8 @@ function renderTwoWeekComboChartConfig(twoWeekData) {
     };
     
     return cfg;
+}
+
+function renderRecentlyPriceGrid(canvasId, twoWeekData) {
+    
 }

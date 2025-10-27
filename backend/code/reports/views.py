@@ -32,6 +32,7 @@ def _veg_context(veg_lookup_name: str, display_name: str):
         })
         return context
 
+    # recently price data
     qs = IngestMarket.objects.filter(vegetable=vegetable).order_by('-target_date')
     latest = qs.first()
 
@@ -39,12 +40,88 @@ def _veg_context(veg_lookup_name: str, display_name: str):
     volume = latest.volume if latest and hasattr(latest, 'volume') else None
 
     markets = list(qs[:14].values())  # リストとして評価
+
+    # predict price data
+
+    # season price data
+    # FIXME: .today()に変更
+    today = date(2025, 7, 31)
+    one_year_ago = today - timedelta(days=365)
+    two_years_ago = today - timedelta(days=365*2)
+    five_years_ago = today - timedelta(days=365*5)
+
+    # 現在のシーズンデータ（過去1年）
+    current_season = IngestMarket.objects.filter(
+        vegetable=vegetable,
+        target_date__gte=one_year_ago,
+        target_date__lte=today
+    ).order_by('target_date')
+
+    # 前年のシーズンデータ
+    last_season = IngestMarket.objects.filter(
+        vegetable=vegetable,
+        target_date__gte=two_years_ago,
+        target_date__lte=one_year_ago
+    ).order_by('target_date')
+
+    # 過去5年のデータ
+    five_year_data = IngestMarket.objects.filter(
+        vegetable=vegetable,
+        target_date__gte=five_years_ago,
+        target_date__lte=today
+    ).order_by('target_date')
+
+    # 各期間のデータをシリーズ化
+    season_series = []
+    
+    # 現在シーズン
+    for market in current_season:
+        season_series.append({
+            'target_date': market.target_date,
+            'current_season_price': market.source_price,
+            'last_season_price': None,
+            'five_year_avg_price': None
+        })
+
+    # 前年のデータを対応する日付にマッピング
+    last_season_dict = {
+        market.target_date.strftime('%m-%d'): market.source_price 
+        for market in last_season
+    }
+
+    # 5年データから日付ごとの平均を計算
+    five_year_avg = {}
+    five_year_counts = {}
+    for market in five_year_data:
+        date_key = market.target_date.strftime('%m-%d')
+        if market.source_price is not None:
+            if date_key not in five_year_avg:
+                five_year_avg[date_key] = market.source_price
+                five_year_counts[date_key] = 1
+            else:
+                five_year_avg[date_key] += market.source_price
+                five_year_counts[date_key] += 1
+
+    # 平均値を計算
+    for key in five_year_avg:
+        five_year_avg[key] = five_year_avg[key] / five_year_counts[key]
+
+    # シリーズにデータを結合
+    for item in season_series:
+        date_key = item['target_date'].strftime('%m-%d')
+        # 前年同日のデータを追加
+        item['last_season_price'] = last_season_dict.get(date_key)
+        # 5年平均を追加
+        item['five_year_avg_price'] = five_year_avg.get(date_key)
+
     context.update({
         'recent_date': latest.target_date if latest else None,
         'source_price': source_price,
         'volume': volume,
         'recently_price_data': json.dumps(markets, cls=DjangoJSONEncoder),  # JSONデータ用
-        'markets': markets,  # テーブル表示用
+        'predict_price_data': json.dumps(season_series, cls=DjangoJSONEncoder),  # JSONデータ用
+        'season_price_data': json.dumps(season_series, cls=DjangoJSONEncoder),  # シーズンデータ（現在/前年/5年平均）
+        'markets': markets  # テーブル表示用
     })
 
     return context

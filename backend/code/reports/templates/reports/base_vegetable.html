@@ -1,4 +1,6 @@
 {% extends "config/base_reports.html" %}
+{% load static %}
+
 
 {% block contents %}
 <main>
@@ -12,19 +14,23 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <h5 class="card-title text-primary">120円</h5>
-                    <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
+                    <div class="card-title d-flex justify-content-around align-items-center">
+                        <h5 class="min-predict-price text-primary">100円</h5>
+                        <p>-</p>
+                        <h5 class="median-predict-price text-black">110円</h5>
+                        <p>-</p>
+                        <h5 class="max-predict-price text-danger">120円</h5>
+                    </div>
                 </div>
             </div>
             <div class="card w-50">
                 <div class="card-header text-center">
                     <h5 class="card-subtitle my-2">
-                        OO年XX月の価格予測（/kg）
+                        OO年XX月の価格見通し
                     </h5>
                 </div>
                 <div class="card-body">
-                    <h5 class="card-title text-primary">120円</h5>
-                    <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
+                    <h5 class="card-title text-center">強もちあい</h5>
                 </div>
             </div>            
         </section>
@@ -39,8 +45,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <h5 class="card-title text-primary">120円</h5>
-                        <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
+                        <h5 class="card-title text-center">180<span class="text-sm">円</span></h5>
                     </div>
                 </div>
                 <div class="card w-50">
@@ -50,7 +55,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <h6>5%(19円)↓</h6>
+                        <h5 class="card-title text-center">5%(19円)↓</h5>
                     </div>
                 </div>
                 <div class="card w-50">
@@ -60,8 +65,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <h5 class="card-title text-primary">120円</h5>
-                        <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
+                        <h5 class="card-title text-center">0.5<span class="text-sm">t</span></h5>
                     </div>
                 </div>
             </div>
@@ -72,9 +76,9 @@
             <!-- TODO: ここにグラフ作成 -->
             <p>ここに作る</p>
             <div class="container">
-                <div class="price_plot">
+                <div class="recently-price-graph-plot">
                     <canvas
-                    id="price"
+                    id="recently-price-graph-plot"
                     style="width: 800px; height: 400px;"
                     ></canvas>
                 </div>
@@ -98,8 +102,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <h5 class="card-title text-primary">120円</h5>
-                        <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
+                        <h5 class="card-title text-center">5%(19円)↓</h5>
                     </div>
                 </div>
                 <div class="card w-50">
@@ -109,7 +112,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <h6>5%(19円)↓</h6>
+                       <h5 class="card-title text-center">5%(19円)↓</h5>
                     </div>
                 </div>
                 <div class="card w-50">
@@ -119,8 +122,7 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <h5 class="card-title text-primary">120円</h5>
-                        <h6 class="card-subtitle mb-2">キャベツの1か月後の価格</h6>
+                        <h5 class="card-title text-center">5%(19円)↓</h5>
                     </div>
                 </div>
             </div>
@@ -172,4 +174,18 @@
     </div>
 </main>
 {% endblock contents %}
-    
+
+{% block scripts %}
+<!-- Chart.js (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- app static script that renders the chart -->
+<script src="{% static 'reports/recentlyPriceGraph.js' %}"></script>
+<script>
+    // call render on the canvas used in this template
+    const data = JSON.parse('{{ recently_price_data|default:"[]"|escapejs }}');
+    // console.log(data);
+    const ctx = document.getElementById('recently-price-graph-plot');
+    const config = renderTwoWeekComboChartConfig(data);
+    new Chart(ctx, config);
+</script>
+{% endblock scripts %}

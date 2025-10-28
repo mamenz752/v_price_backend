@@ -72,11 +72,11 @@ def _veg_context(veg_lookup_name: str, display_name: str):
     ).order_by('target_date')
 
     # 各期間のデータをシリーズ化
-    season_series = []
+    year_series = []
     
     # 現在シーズン
     for market in current_season:
-        season_series.append({
+        year_series.append({
             'target_date': market.target_date,
             'current_season_price': market.source_price,
             'last_season_price': None,
@@ -107,21 +107,33 @@ def _veg_context(veg_lookup_name: str, display_name: str):
         five_year_avg[key] = five_year_avg[key] / five_year_counts[key]
 
     # シリーズにデータを結合
-    for item in season_series:
+    for item in year_series:
         date_key = item['target_date'].strftime('%m-%d')
         # 前年同日のデータを追加
         item['last_season_price'] = last_season_dict.get(date_key)
         # 5年平均を追加
         item['five_year_avg_price'] = five_year_avg.get(date_key)
 
+    # 最新の日付から年月を取得
+    latest_date = latest.target_date if latest else None
+    if latest_date:
+        current_year = latest_date.year
+        current_month = latest_date.month
+        first_half = "前半" if latest_date.day <= 15 else "後半"
+        display_date = f"{current_year}年{current_month}月{first_half}"
+    else:
+        display_date = "データなし"
+
     context.update({
-        'recent_date': latest.target_date if latest else None,
+        'recent_date': latest_date,
         'source_price': source_price,
         'volume': volume,
-        'recently_price_data': json.dumps(markets, cls=DjangoJSONEncoder),  # JSONデータ用
-        'predict_price_data': json.dumps(season_series, cls=DjangoJSONEncoder),  # JSONデータ用
-        'season_price_data': json.dumps(season_series, cls=DjangoJSONEncoder),  # シーズンデータ（現在/前年/5年平均）
-        'markets': markets  # テーブル表示用
+        'display_date': display_date,  # 表示用の日付文字列を追加
+        'recently_price_data': json.dumps(markets, cls=DjangoJSONEncoder),
+        'predict_price_data': json.dumps(year_series, cls=DjangoJSONEncoder),
+        'season_price_data': json.dumps(year_series, cls=DjangoJSONEncoder),
+        'year_price_data': json.dumps(year_series, cls=DjangoJSONEncoder),
+        'markets': markets
     })
 
     return context

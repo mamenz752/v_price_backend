@@ -10,33 +10,33 @@
             <div class="card w-50">
                 <div class="card-header text-center">
                     <h5 class="card-subtitle my-2">
-                        OO年XX月の価格予測（/kg）
+                        {{ display_date }}の価格予測（/kg）
                     </h5>
                 </div>
-                <div class="card-body">
-                    <div class="card-title d-flex justify-content-around align-items-center">
-                        <h5 class="min-predict-price text-primary">100円</h5>
-                        <p>-</p>
-                        <h5 class="median-predict-price text-black">110円</h5>
-                        <p>-</p>
-                        <h5 class="max-predict-price text-danger">120円</h5>
+                <div class="card-body d-flex align-items-center justify-content-center">
+                    <div class="d-flex gap-3 align-items-center">
+                        <span class="min-predict-price text-primary fs-5 fw-bold">150円</span>
+                        <span>-</span>
+                        <span class="median-predict-price text-black fs-5 fw-bold">175円</span>
+                        <span>-</span>
+                        <span class="max-predict-price text-danger fs-5 fw-bold">200円</span>
                     </div>
                 </div>
             </div>
             <div class="card w-50">
                 <div class="card-header text-center">
                     <h5 class="card-subtitle my-2">
-                        OO年XX月の価格見通し
+                        {{ display_date }}の価格見通し
                     </h5>
                 </div>
                 <div class="card-body">
-                    <h5 class="card-title text-center">強もちあい</h5>
+                    <p class="card-text text-center fs-5 fw-bold">強もちあい</p>
                 </div>
             </div>            
         </section>
 
         <section class="yesterday-market-summary">
-            <h3>前市集計表（20XX/MM/DD）</h3>
+            <h3>前市集計表（{{ recent_date|date:"Y/m/d" }}）</h3>
             <div class="card-summary d-flex gap-4 mb-4">
                 <div class="card w-50">
                     <div class="card-header text-center">
@@ -44,8 +44,8 @@
                             価格（/kg）
                         </h5>
                     </div>
-                    <div class="card-body">
-                        <h5 class="card-title text-center">180<span class="text-sm">円</span></h5>
+                    <div class="card-body d-flex align-items-center justify-content-center">
+                        <h5 class="card-title m-0">180<span class="text-sm">円</span></h5>
                     </div>
                 </div>
                 <div class="card w-50">
@@ -54,8 +54,8 @@
                             前市比
                         </h5>
                     </div>
-                    <div class="card-body">
-                        <h5 class="card-title text-center">5%(19円)↓</h5>
+                    <div class="card-body d-flex align-items-center justify-content-center">
+                        <h5 class="card-title m-0 fs-4">5%(19円)↓</h5>
                     </div>
                 </div>
                 <div class="card w-50">
@@ -168,8 +168,7 @@
         </section>
         
         <section class="season-price-graph">
-            <h4 class="contents-header">キャベツの長期価格変動</h4>
-            <!-- TODO: ここにグラフ作成 -->
+            <h4 class="contents-header">キャベツの直近3カ月価格変動</h4>
             <div class="container">
                 <div class="season-price-graph-plot d-flex justify-content-center">
                     <canvas
@@ -186,6 +185,18 @@
                 <button id="toggleLow" class="button">安値</button>
                 <button id="toggleRecent" class="button">直近価格</button>
             </div> -->
+        </section>
+
+        <section class="year-price-graph">
+            <h4 class="contents-header">キャベツの通年価格変動</h4>
+            <div class="container">
+                <div class="year-price-graph-plot d-flex justify-content-center">
+                    <canvas
+                    id="year-price-graph-plot"
+                    style="height: 400px; margin: 0 auto;"
+                    ></canvas>
+                </div>
+            </div>
         </section>
     </div>
 </main>
@@ -225,6 +236,8 @@
 {% block scripts %}
 <!-- Chart.js CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Chart.js Adapters for Date/Time -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <!-- app static script that renders the chart -->
 <script src="{% static 'reports/graphConfig.js' %}"></script>
 <script>
@@ -232,16 +245,20 @@
     const r_data = JSON.parse('{{ recently_price_data|default:"[]"|escapejs }}');
     const p_data = JSON.parse('{{ predict_price_data|default:"[]"|escapejs }}');
     const s_data = JSON.parse('{{ season_price_data|default:"[]"|escapejs }}');
+    const y_data = JSON.parse('{{ year_price_data|default:"[]"|escapejs }}');
 
     // Render chart
     const r_ctx = document.getElementById('recently-price-graph-plot');
     const p_ctx = document.getElementById('predict-price-graph-plot');
     const s_ctx = document.getElementById('season-price-graph-plot');
+    const y_ctx = document.getElementById('year-price-graph-plot');
     const r_config = renderRecentlyPriceGraphConfig(r_data);
     const p_config = renderPredictPriceGraphConfig(p_data);
     const s_config = renderSeasonPriceGraphConfig(s_data);
+    const y_config = renderYearPriceGraphConfig(y_data);
     new Chart(r_ctx, r_config);
     new Chart(p_ctx, p_config);
     new Chart(s_ctx, s_config);
+    new Chart(y_ctx, y_config);
 </script>
 {% endblock scripts %}

@@ -5,7 +5,10 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.db.models import F
 
-from forecast.models import ForecastModelKind, ForecastModelVersion, ForecastModelCoef, ForecastModelEvaluation
+from forecast.models import (
+    ForecastModelKind, ForecastModelVersion, ForecastModelCoef, 
+    ForecastModelEvaluation, ForecastModelVariable, ForecastModelFeatureSet
+)
 from .service.run_ols import ForecastOLSRunner, ForecastOLSConfig
 # 遅延インポートのために、run_ols からのインポートは行わない
 
@@ -31,6 +34,13 @@ def index(request):
     model_coefficients = ForecastModelCoef.objects.select_related('variable')\
         .order_by('-created_at')[:100]  # 最新100件の係数
     
+    # 使用可能な説明変数一覧を取得
+    variables = ForecastModelVariable.objects.all().order_by('name')
+    
+    # 現在の特徴量セットを取得
+    feature_sets = ForecastModelFeatureSet.objects.select_related('model_kind', 'variable')\
+        .order_by('model_kind__tag_name', 'target_month')
+    
     # テンプレートに渡すコンテキスト
     context = {
         'model_kinds': model_kinds,
@@ -38,6 +48,8 @@ def index(request):
         'all_models': all_models,
         'model_evaluations': model_evaluations,
         'model_coefficients': model_coefficients,
+        'variables': variables,
+        'feature_sets': feature_sets,
     }
     
     return render(request, 'forecast/index.html', context)
@@ -47,10 +59,11 @@ def run_model(request):
     """モデル実行ビュー（POSTのみ）"""
     model_name = request.POST.get('model_name')
     target_month = request.POST.get('target_month')
+    variable_ids = request.POST.getlist('variables')
     
     # 入力検証
-    if not model_name or not target_month:
-        messages.error(request, 'モデル名と対象月は必須です')
+    if not model_name or not target_month or not variable_ids:
+        messages.error(request, 'モデル名、対象月、説明変数は必須です')
         return redirect('forecast:index')
     
     try:
@@ -63,6 +76,24 @@ def run_model(request):
     
     # モデルの実行
     try:
+        # モデル種類を取得
+        model_kind = ForecastModelKind.objects.get(tag_name=model_name)
+        
+        # 既存の特徴量セットを削除
+        ForecastModelFeatureSet.objects.filter(
+            model_kind=model_kind,
+            target_month=target_month
+        ).delete()
+        
+        # 新しい特徴量セットを作成
+        for variable_id in variable_ids:
+            variable = ForecastModelVariable.objects.get(id=variable_id)
+            ForecastModelFeatureSet.objects.create(
+                target_month=target_month,
+                model_kind=model_kind,
+                variable=variable
+            )
+        
         config = ForecastOLSConfig(region_name='広島', deactivate_previous=True)
         runner = ForecastOLSRunner(config=config)
         

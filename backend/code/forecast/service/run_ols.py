@@ -278,7 +278,7 @@ class ForecastOLSRunner:
                 # 定数項の場合
                 if name == 'const':
                     variable = const_var
-                    is_segment = False
+                    is_segment = True  # 定数項の場合はis_segmentをTrueに設定
                 else:
                     # 通常の変数の場合
                     if name not in variable_dict:

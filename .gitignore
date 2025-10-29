@@ -9,3 +9,5 @@ db_data
 __pycache__
 
 logs
+
+local.settings.json

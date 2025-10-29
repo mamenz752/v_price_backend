@@ -75,5 +75,7 @@ services:
     environment:
       AzureWebJobsStorage: ${AZURE_CONNECTION_STRING}
       PG_CONN: host=db port=5432 dbname=${POSTGRES_DB} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD}
+      AzureFunctionsJobHost__extensionBundle__feedUri: https://functionscdn.azureedge.net/public/ExtensionBundles/Microsoft.Azure.Functions.ExtensionBundle/index.json
+      AzureFunctionsJobHost__extensionBundle__downloadPath: /home/site/wwwroot/ExtensionBundles
     ports: ["7071:7071"]
 

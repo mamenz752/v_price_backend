@@ -1,0 +1,11 @@
+{
+    "bindings": [
+        {
+            "name": "priceTrigger",
+            "type": "timerTrigger",
+            "direction": "in",
+            "schedule": "0 */1 * * * *"
+        }
+    ],
+    "scriptFile": "__init__.py"
+}

@@ -5,7 +5,7 @@
 {% block contents %}
 <main>
     <div class="container">
-        <h2>キャベツ</h2>
+        <h2>{{ vegetable_name }}</h2>
         <section class="prediction-summary d-flex gap-4 mb-4">
             <div class="card w-50">
                 <div class="card-header text-center">
@@ -39,7 +39,7 @@
                     </h5>
                 </div>
                 <div class="card-body d-flex align-items-center justify-content-center" style="height: 100%">
-                    <p class="card-text text-center fs-5 fw-bold m-0">強もちあい</p>
+                    <p class="card-text text-center fs-5 fw-bold m-0">{{ latest_trend|default:"なし" }}</p>
                 </div>
             </div>            
         </section>
@@ -65,17 +65,44 @@
                     </div>
                     <div class="card-body d-flex align-items-center justify-content-between px-4">
                         <div class="flex-grow-1 text-center">
-                            <span class="fs-5 fw-bold">19</span>
-                            <span class="fs-6">円</span>
+                            <small class="text-muted mb-1">差分</small>
+                            <div>
+                                {% if price_diff is not None %}
+                                    <span class="fs-5 fw-bold">{{ price_diff|floatformat:"0" }}</span>
+                                    <span class="fs-6">円</span>
+                                {% else %}
+                                    <span class="fs-5 fw-bold">-</span>
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="border-start border-2" style="height: 2rem;"></div>
                         <div class="flex-grow-1 text-center">
-                            <span class="fs-5 fw-bold">5</span>
-                            <span class="fs-6">%</span>
+                            <small class="text-muted mb-1">比率</small>
+                            <div>
+                                {% if price_diff_ratio is not None %}
+                                    <span class="fs-5 fw-bold">{{ price_diff_ratio|floatformat:"1" }}</span>
+                                    <span class="fs-6">%</span>
+                                {% else %}
+                                    <span class="fs-5 fw-bold">-</span>
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="border-start border-2" style="height: 2rem;"></div>
                         <div class="flex-grow-1 text-center">
-                            <span class="fs-5 fw-black text-primary">↓</span>
+                            <small class="text-muted mb-1">増減</small>
+                            <div>
+                                {% if price_diff is not None %}
+                                    {% if price_diff > 0 %}
+                                        <span class="fs-5 fw-black text-danger">↑</span>
+                                    {% elif price_diff < 0 %}
+                                        <span class="fs-5 fw-black text-primary">↓</span>
+                                    {% else %}
+                                        <span class="fs-5 fw-black text-secondary">→</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="fs-5 fw-black text-secondary">-</span>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -86,14 +113,16 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <h5 class="card-title text-center">0.3<span class="text-sm">t</span></h5>
+                        <div class="card-body d-flex align-items-center justify-content-center" style="height: 100%">
+                            <p class="card-text text-center fs-5 fw-bold m-0">{{ volume }}<span class="text-sm">t</span></p>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
         
         <section class="recently-price-graph">
-            <h4 class="contents-header">キャベツの直近価格変動グラフ</h4>
+            <h4 class="contents-header">{{ vegetable_name }}の直近価格変動グラフ</h4>
             <div class="container">
                 <div class="recently-price-graph-plot d-flex justify-content-center">
                     <canvas
@@ -141,16 +170,45 @@
                         </h5>
                     </div>
                     <div class="card-body d-flex align-items-center justify-content-between px-4">
-                        <div class="text-end">
-                            <span class="fs-5 fw-bold">19</span>
-                            <span class="fs-6">円</span>
+                        <div class="flex-grow-1 text-center">
+                            <small class="text-muted mb-1">差分</small>
+                            <div>
+                                {% if last_year_diff is not None %}
+                                    <span class="fs-5 fw-bold">{{ last_year_diff|floatformat:"0" }}</span>
+                                    <span class="fs-6">円</span>
+                                {% else %}
+                                    <span class="fs-5 fw-bold">-</span>
+                                {% endif %}
+                            </div>
                         </div>
-                        <div class="text-center">
-                            <span class="fs-5 fw-bold text-danger">5</span>
-                            <span class="fs-6">%</span>
+                        <div class="border-start border-2" style="height: 2rem;"></div>
+                        <div class="flex-grow-1 text-center">
+                            <small class="text-muted mb-1">比率</small>
+                            <div>
+                                {% if last_year_ratio is not None %}
+                                    <span class="fs-5 fw-bold">{{ last_year_ratio|floatformat:"1" }}</span>
+                                    <span class="fs-6">%</span>
+                                {% else %}
+                                    <span class="fs-5 fw-bold">-</span>
+                                {% endif %}
+                            </div>
                         </div>
-                        <div class="text-start">
-                            <span class="fs-5 fw-bold text-danger">↓</span>
+                        <div class="border-start border-2" style="height: 2rem;"></div>
+                        <div class="flex-grow-1 text-center">
+                            <small class="text-muted mb-1">増減</small>
+                            <div>
+                                {% if last_year_diff is not None %}
+                                    {% if last_year_diff > 0 %}
+                                        <span class="fs-5 fw-black text-danger">↑</span>
+                                    {% elif last_year_diff < 0 %}
+                                        <span class="fs-5 fw-black text-primary">↓</span>
+                                    {% else %}
+                                        <span class="fs-5 fw-black text-secondary">→</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="fs-5 fw-black text-secondary">-</span>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -160,8 +218,47 @@
                             前々年比
                         </h5>
                     </div>
-                    <div class="card-body">
-                       <h5 class="card-title text-center">5%(19円)↓</h5>
+                    <div class="card-body d-flex align-items-center justify-content-between px-4">
+                        <div class="flex-grow-1 text-center">
+                            <small class="text-muted mb-1">差分</small>
+                            <div>
+                                {% if two_years_diff is not None %}
+                                    <span class="fs-5 fw-bold">{{ two_years_diff|floatformat:"0" }}</span>
+                                    <span class="fs-6">円</span>
+                                {% else %}
+                                    <span class="fs-5 fw-bold">-</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="border-start border-2" style="height: 2rem;"></div>
+                        <div class="flex-grow-1 text-center">
+                            <small class="text-muted mb-1">比率</small>
+                            <div>
+                                {% if two_years_ratio is not None %}
+                                    <span class="fs-5 fw-bold">{{ two_years_ratio|floatformat:"1" }}</span>
+                                    <span class="fs-6">%</span>
+                                {% else %}
+                                    <span class="fs-5 fw-bold">-</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="border-start border-2" style="height: 2rem;"></div>
+                        <div class="flex-grow-1 text-center">
+                            <small class="text-muted mb-1">増減</small>
+                            <div>
+                                {% if two_years_diff is not None %}
+                                    {% if two_years_diff > 0 %}
+                                        <span class="fs-5 fw-black text-danger">↑</span>
+                                    {% elif two_years_diff < 0 %}
+                                        <span class="fs-5 fw-black text-primary">↓</span>
+                                    {% else %}
+                                        <span class="fs-5 fw-black text-secondary">→</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="fs-5 fw-black text-secondary">-</span>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="card w-50">
@@ -170,15 +267,54 @@
                             平年比
                         </h5>
                     </div>
-                    <div class="card-body">
-                        <h5 class="card-title text-center">5%(19円)↓</h5>
+                    <div class="card-body d-flex align-items-center justify-content-between px-4">
+                        <div class="flex-grow-1 text-center">
+                            <small class="text-muted mb-1">差分</small>
+                            <div>
+                                {% if avg_diff is not None %}
+                                    <span class="fs-5 fw-bold">{{ avg_diff|floatformat:"0" }}</span>
+                                    <span class="fs-6">円</span>
+                                {% else %}
+                                    <span class="fs-5 fw-bold">-</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="border-start border-2" style="height: 2rem;"></div>
+                        <div class="flex-grow-1 text-center">
+                            <small class="text-muted mb-1">比率</small>
+                            <div>
+                                {% if avg_ratio is not None %}
+                                    <span class="fs-5 fw-bold">{{ avg_ratio|floatformat:"1" }}</span>
+                                    <span class="fs-6">%</span>
+                                {% else %}
+                                    <span class="fs-5 fw-bold">-</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="border-start border-2" style="height: 2rem;"></div>
+                        <div class="flex-grow-1 text-center">
+                            <small class="text-muted mb-1">増減</small>
+                            <div>
+                                {% if avg_diff is not None %}
+                                    {% if avg_diff > 0 %}
+                                        <span class="fs-5 fw-black text-danger">↑</span>
+                                    {% elif avg_diff < 0 %}
+                                        <span class="fs-5 fw-black text-primary">↓</span>
+                                    {% else %}
+                                        <span class="fs-5 fw-black text-secondary">→</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="fs-5 fw-black text-secondary">-</span>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
         
         <section class="predict-price-graph">
-            <h4 class="contents-header">キャベツの価格予測傾向</h4>
+            <h4 class="contents-header">{{ vegetable_name }}の価格予測傾向</h4>
             <!-- TODO: ここにグラフ作成 -->
             <div class="container">
                 <div class="predict-price-graph-plot d-flex justify-content-center">
@@ -199,7 +335,7 @@
         </section>
         
         <section class="season-price-graph">
-            <h4 class="contents-header">キャベツの直近3カ月価格変動</h4>
+            <h4 class="contents-header">{{ vegetable_name }}の直近3カ月価格変動</h4>
             <div class="container">
                 <div class="season-price-graph-plot d-flex justify-content-center">
                     <canvas
@@ -219,7 +355,7 @@
         </section>
 
         <section class="year-price-graph">
-            <h4 class="contents-header">キャベツの通年価格変動</h4>
+            <h4 class="contents-header">{{ vegetable_name }}の通年価格変動</h4>
             <div class="container">
                 <div class="year-price-graph-plot d-flex justify-content-center">
                     <canvas
@@ -277,6 +413,8 @@
     const p_data = JSON.parse('{{ predict_price_data|default:"[]"|escapejs }}');
     const s_data = JSON.parse('{{ season_price_data|default:"[]"|escapejs }}');
     const y_data = JSON.parse('{{ year_price_data|default:"[]"|escapejs }}');
+    const d = JSON.parse('{{ last_year_diff|default:"[]"|escapejs }}');
+    console.log(d);
 
     // Render chart
     const r_ctx = document.getElementById('recently-price-graph-plot');

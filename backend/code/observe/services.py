@@ -145,11 +145,17 @@ class ObserveService:
         # 定数項を加算
         prediction += const_value
 
-        # 信頼区間を計算（簡易的な実装）
-        # FIXME: RMSEを参照
-        margin = prediction * (1 - self.cfg.confidence_interval)
-        min_price = prediction - margin
-        max_price = prediction + margin
+        # モデルのRMSEを取得して信頼区間を計算
+        try:
+            model_evaluation = model_version.forecastmodelevaluation_set.latest('created_at')
+            rmse = model_evaluation.rmse
+            min_price = prediction - rmse
+            max_price = prediction + rmse
+        except:
+            # RMSEが取得できない場合は、予測値の±5%をデフォルトとして使用
+            margin = prediction * 0.05
+            min_price = prediction - margin
+            max_price = prediction + margin
 
         # 予測結果を保存
         with transaction.atomic():

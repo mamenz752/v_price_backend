@@ -10,6 +10,7 @@ from forecast.models import (
     ForecastModelEvaluation, ForecastModelVariable, ForecastModelFeatureSet
 )
 from .service.run_ols import ForecastOLSRunner, ForecastOLSConfig
+from .services import ModelVariableDisplayService
 # 遅延インポートのために、run_ols からのインポートは行わない
 
 def index(request):
@@ -42,6 +43,9 @@ def index(request):
         .order_by('model_kind__tag_name', 'target_month')
     
     # テンプレートに渡すコンテキスト
+    # 1から12までの月のリストを作成
+    months = list(range(1, 13))
+    
     context = {
         'model_kinds': model_kinds,
         'active_models': active_models,
@@ -50,6 +54,7 @@ def index(request):
         'model_coefficients': model_coefficients,
         'variables': variables,
         'feature_sets': feature_sets,
+        'months': months,  # 月のリストを追加
     }
     
     return render(request, 'forecast/index.html', context)

@@ -344,14 +344,40 @@
                     ></canvas>
                 </div>
             </div>
-            <!-- TODO: ここにグラフソース元の表を作成 -->
-            <div></div>
-            <!-- <div class="button-group">
-                <button id="toggleHigh" class="button">高値</button>
-                <button id="toggleMedian" class="button">中値</button>
-                <button id="toggleLow" class="button">安値</button>
-                <button id="toggleRecent" class="button">直近価格</button>
-            </div> -->
+            <div class="container mt-4">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">期間</th>
+                                <th scope="col" class="text-end">平均価格（円/kg）</th>
+                                <th scope="col" class="text-end">最安値（円/kg）</th>
+                                <th scope="col" class="text-end">最高値（円/kg）</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">当年</th>
+                                <td class="text-end">{{ season_current_avg|default:"-"|floatformat:0|intcomma }}</td>
+                                <td class="text-end">{{ season_current_min|default:"-"|floatformat:0|intcomma }}</td>
+                                <td class="text-end">{{ season_current_max|default:"-"|floatformat:0|intcomma }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">前年同期</th>
+                                <td class="text-end">{{ season_last_year_avg|default:"-"|floatformat:0|intcomma }}</td>
+                                <td class="text-end">{{ season_last_year_min|default:"-"|floatformat:0|intcomma }}</td>
+                                <td class="text-end">{{ season_last_year_max|default:"-"|floatformat:0|intcomma }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">過去5年平均</th>
+                                <td class="text-end">{{ season_five_years_avg|default:"-"|floatformat:0|intcomma }}</td>
+                                <td class="text-end">{{ season_five_years_min|default:"-"|floatformat:0|intcomma }}</td>
+                                <td class="text-end">{{ season_five_years_max|default:"-"|floatformat:0|intcomma }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </section>
 
         <section class="year-price-graph">

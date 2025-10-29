@@ -346,6 +346,85 @@ def _veg_context(veg_lookup_name: str, display_name: str):
     print(f"avg_diff: {avg_diff}")
     print(f"avg_ratio: {avg_ratio}")
 
+    # 直近3カ月のデータを計算
+    if latest_date:
+        # 当年の3カ月データ
+        three_months_ago = latest_date - timedelta(days=90)
+        print(f"Debug: Calculating current 3 months data from {three_months_ago} to {latest_date}")
+        
+        current_three_months = IngestMarket.objects.filter(
+            vegetable=vegetable,
+            target_date__gte=three_months_ago,
+            target_date__lte=latest_date
+        ).values_list('source_price', flat=True)
+        
+        valid_prices = [p for p in current_three_months if p is not None]
+        print(f"Debug: Found {len(valid_prices)} valid prices for current period")
+        print(f"Debug: Valid prices: {valid_prices}")
+        
+        if valid_prices:
+            season_current_avg = sum(valid_prices) / len(valid_prices)
+            season_current_min = min(valid_prices)
+            season_current_max = max(valid_prices)
+            print(f"Debug: Current period stats - avg: {season_current_avg}, min: {season_current_min}, max: {season_current_max}")
+        else:
+            season_current_avg = season_current_min = season_current_max = None
+            print("Debug: No valid prices found for current period")
+
+        # 前年同期の3カ月データ
+        last_year_start = three_months_ago.replace(year=three_months_ago.year - 1)
+        last_year_end = latest_date.replace(year=latest_date.year - 1)
+        print(f"Debug: Calculating last year 3 months data from {last_year_start} to {last_year_end}")
+        
+        last_year_three_months = IngestMarket.objects.filter(
+            vegetable=vegetable,
+            target_date__gte=last_year_start,
+            target_date__lte=last_year_end
+        ).values_list('source_price', flat=True)
+        
+        valid_prices = [p for p in last_year_three_months if p is not None]
+        print(f"Debug: Found {len(valid_prices)} valid prices for last year period")
+        print(f"Debug: Valid prices: {valid_prices}")
+        
+        if valid_prices:
+            season_last_year_avg = sum(valid_prices) / len(valid_prices)
+            season_last_year_min = min(valid_prices)
+            season_last_year_max = max(valid_prices)
+            print(f"Debug: Last year period stats - avg: {season_last_year_avg}, min: {season_last_year_min}, max: {season_last_year_max}")
+        else:
+            season_last_year_avg = season_last_year_min = season_last_year_max = None
+            print("Debug: No valid prices found for last year period")
+
+        # 過去5年の同期データ
+        print(f"Debug: Calculating 5 years historical data")
+        five_years_prices = []
+        for year in range(latest_date.year - 5, latest_date.year):
+            year_start = three_months_ago.replace(year=year)
+            year_end = latest_date.replace(year=year)
+            print(f"Debug: Processing year {year} from {year_start} to {year_end}")
+            
+            year_prices = IngestMarket.objects.filter(
+                vegetable=vegetable,
+                target_date__gte=year_start,
+                target_date__lte=year_end
+            ).values_list('source_price', flat=True)
+            
+            valid_year_prices = [p for p in year_prices if p is not None]
+            print(f"Debug: Found {len(valid_year_prices)} valid prices for year {year}")
+            if valid_year_prices:
+                five_years_prices.extend(valid_year_prices)
+        
+        if five_years_prices:
+            season_five_years_avg = sum(five_years_prices) / len(five_years_prices)
+            season_five_years_min = min(five_years_prices)
+            season_five_years_max = max(five_years_prices)
+        else:
+            season_five_years_avg = season_five_years_min = season_five_years_max = None
+    else:
+        season_current_avg = season_current_min = season_current_max = None
+        season_last_year_avg = season_last_year_min = season_last_year_max = None
+        season_five_years_avg = season_five_years_min = season_five_years_max = None
+
     context.update({
         'recent_date': latest_date,
         'source_price': round(source_price) if source_price is not None else None,
@@ -354,6 +433,16 @@ def _veg_context(veg_lookup_name: str, display_name: str):
         'volume': volume,
         'display_date': display_date,  # 表示用の日付文字列を追加
         'latest_trend': latest_trend,  # データがない場合は "データなし" が設定される
+        # 直近3カ月の統計データ
+        'season_current_avg': int(round(season_current_avg)) if season_current_avg is not None else None,
+        'season_current_min': int(round(season_current_min)) if season_current_min is not None else None,
+        'season_current_max': int(round(season_current_max)) if season_current_max is not None else None,
+        'season_last_year_avg': int(round(season_last_year_avg)) if season_last_year_avg is not None else None,
+        'season_last_year_min': int(round(season_last_year_min)) if season_last_year_min is not None else None,
+        'season_last_year_max': int(round(season_last_year_max)) if season_last_year_max is not None else None,
+        'season_five_years_avg': int(round(season_five_years_avg)) if season_five_years_avg is not None else None,
+        'season_five_years_min': int(round(season_five_years_min)) if season_five_years_min is not None else None,
+        'season_five_years_max': int(round(season_five_years_max)) if season_five_years_max is not None else None,
         # 前年比データ
         'last_year_diff': round(last_year_diff) if last_year_diff is not None else None,
         'last_year_ratio': last_year_ratio,

@@ -126,7 +126,7 @@ def _veg_context(veg_lookup_name: str, display_name: str):
 
     context.update({
         'recent_date': latest_date,
-        'source_price': source_price,
+        'source_price': round(source_price),
         'volume': volume,
         'display_date': display_date,  # 表示用の日付文字列を追加
         'recently_price_data': json.dumps(markets, cls=DjangoJSONEncoder),

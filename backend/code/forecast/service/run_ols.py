@@ -251,6 +251,20 @@ class ForecastOLSRunner:
                 total_variation=float(tss)
             )
             
+            # モデル作成後、最新の予測も実行
+            from observe.services import ObserveService, ObserveServiceConfig
+            observe_service = ObserveService(ObserveServiceConfig(region_name=self.cfg.region_name))
+            current_year = datetime.now().year
+            try:
+                observe_service.observe_latest_model(
+                    model_kind.id,
+                    current_year,
+                    target_month,
+                    "前半"  # または適切な半期を指定
+                )
+            except Exception as e:
+                print(f"予測の実行中にエラーが発生しました: {str(e)}")
+            
             # 係数の保存
             se = model.bse
             tv = model.tvalues

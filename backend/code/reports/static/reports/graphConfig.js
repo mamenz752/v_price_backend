@@ -1,0 +1,425 @@
+/*
+ Simple recentlyPriceGraph.js
+
+ Exports:
+    - renderRecentlyPriceGraph(canvasId, marketsData)
+
+ Usage (template):
+ 1) include Chart.js (CDN or local)
+ 2) set a JS variable with server JSON, e.g.
+            <script>window.recentMarketsData = {{ calc_markets_json|safe }};</script>
+ 3) include this script via {% static %}
+ 4) call renderRecentlyPriceGraph('price', window.recentMarketsData)
+
+ This file is intentionally small and dependency-free except for Chart.js.
+*/
+
+function renderRecentlyPriceGraphConfig(twoWeekData) {
+    if (typeof Chart === 'undefined') {
+        console.warn('[recentlyPriceGraph] Chart.js not loaded.');
+        return null;
+    }
+
+    const labels = [];
+    const volumes = [];
+    const prices = [];
+
+    if (Array.isArray(twoWeekData)) {
+        twoWeekData.forEach(item => {
+            labels.push(item.target_date || '');
+            volumes.push(item.volume != null ? item.volume : null);
+            prices.push(item.source_price != null ? item.source_price : null);
+        });
+    }
+
+    // Ensure chronological order (oldest-first)
+    const chartLabels = labels.slice().reverse();
+    const volumeData = volumes.slice().reverse();
+    const priceData = prices.slice().reverse();
+
+    const cfg = {
+        data: {
+            labels: chartLabels,
+            datasets: [
+                {
+                    type: 'line',
+                    label: '価格（円/kg）',
+                    data: priceData,
+                    borderColor: '#DEF164',
+                    backgroundColor: '#FAFAFA',
+                    tension: 0.2,
+                    pointRadius: 3,
+                    yAxisID: 'y_right',
+                    order: 1
+                },
+                {
+                    type: 'bar',
+                    label: '入荷量 (t)',
+                    data: volumeData,
+                    backgroundColor: '#3F8A31AA',
+                    yAxisID: 'y_volume',
+                    barPercentage: 0.6,
+                    order: 2
+                }
+            ]
+        },
+        options: {
+            // responsive: true,
+            // maintainAspectRatio: false,
+            scales: {
+                x: { title: { display: true, text: '日付' } },
+                y_volume: {
+                    type: 'linear',
+                    position: 'left',
+                    title: { display: true, text: '入荷量 (t)' }
+                },
+                y_right: {
+                    type: 'linear',
+                    position: 'right',
+                    title: { display: true, text: '価格（円/kg）' },
+                    grid: { drawOnChartArea: false }
+                }
+            },
+            elements: {
+                line: { 
+                    lineTension: 0
+                }
+            },
+            plugins: { legend: { position: 'top' } }
+        }
+    };
+    
+    return cfg;
+}
+
+// TODO: データつなぎこみ
+function renderPredictPriceGraphConfig(predictData) {
+    if (typeof Chart === 'undefined') {
+        console.warn('[predictPriceGraph] Chart.js not loaded.');
+        return null;
+    }
+
+    console.log('Predict Data:', predictData);
+
+    const labels = [];
+    const currentSeasonPrices = [];
+    const lastSeasonPrices = [];
+    const fiveYearAvgPrices = [];
+
+    if (Array.isArray(predictData)) {
+        predictData.forEach(item => {
+            labels.push(item.target_date || '');
+            currentSeasonPrices.push(item.current_season_price != null ? item.current_season_price : null);
+            lastSeasonPrices.push(item.last_season_price != null ? item.last_season_price : null);
+            fiveYearAvgPrices.push(item.five_year_avg_price != null ? item.five_year_avg_price : null);
+        });
+    }
+
+    // データをそのまま使用（既にソート済み）
+    const chartLabels = labels;
+
+    console.log('Processed Data:', {
+        labels: chartLabels,
+        currentSeason: currentSeasonPrices,
+        lastSeason: lastSeasonPrices,
+        fiveYearAvg: fiveYearAvgPrices
+    });
+
+    const cfg = {
+        data: {
+            labels: chartLabels,
+            datasets: [
+                {
+                    type: 'line',
+                    label: '今期価格（円/kg）',
+                    data: currentSeasonPrices,
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    yAxisID: 'y_right',
+                    order: 1,
+                    spanGaps: true,
+                    tension: 0.2
+                },
+                {
+                    type: 'line',
+                    label: '前年同期（円/kg）',
+                    data: lastSeasonPrices,
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    yAxisID: 'y_right',
+                    order: 2,
+                    spanGaps: true,
+                    tension: 0.2
+                },
+                {
+                    type: 'line',
+                    label: '過去5年平均（円/kg）',
+                    data: fiveYearAvgPrices,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    yAxisID: 'y_right',
+                    order: 3,
+                    borderDash: [5, 5],
+                    spanGaps: true,
+                    tension: 0.2
+                }
+            ]
+        },
+        options: {
+            // responsive: true,
+            // maintainAspectRatio: false,
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'month',
+                        displayFormats: {
+                            month: 'M/d'
+                        }
+                    },
+                    title: { display: true, text: '日付' },
+                    ticks: {
+                        source: 'auto',
+                        autoSkip: false,
+                        maxRotation: 45
+                    }
+                },
+                y_right: {
+                    type: 'linear',
+                    position: 'right',
+                    title: { display: true, text: '価格（円/kg）' },
+                    grid: { drawOnChartArea: false }
+                }
+            },
+            elements: {
+                line: { 
+                    lineTension: 0
+                }
+            },
+            plugins: { legend: { position: 'top' } }
+        }
+    };
+    
+    return cfg;
+}
+
+
+function renderSeasonPriceGraphConfig(seasonData) {
+    if (typeof Chart === 'undefined') {
+        console.warn('[seasonPriceGraph] Chart.js not loaded.');
+        return null;
+    }
+
+    console.log('Season Data:', seasonData);
+
+    const labels = [];
+    const currentSeasonPrices = [];
+    const lastSeasonPrices = [];
+    const fiveYearAvgPrices = [];
+
+    if (Array.isArray(seasonData)) {
+        // 最新のデータの日付を取得
+        const latestDate = new Date(Math.max(...seasonData.map(item => new Date(item.target_date))));
+        // 3ヶ月前の日付を計算
+        const threeMonthsAgo = new Date(latestDate);
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+        // 直近3ヶ月のデータのみをフィルタリング
+        const filteredData = seasonData.filter(item => {
+            const itemDate = new Date(item.target_date);
+            return itemDate >= threeMonthsAgo && itemDate <= latestDate;
+        });
+
+        // フィルタリングしたデータを使用
+        filteredData.forEach(item => {
+            labels.push(item.target_date || '');
+            currentSeasonPrices.push(item.current_season_price != null ? item.current_season_price : null);
+            lastSeasonPrices.push(item.last_season_price != null ? item.last_season_price : null);
+            fiveYearAvgPrices.push(item.five_year_avg_price != null ? item.five_year_avg_price : null);
+        });
+    }
+
+    // データをそのまま使用（既にソート済み）
+    const chartLabels = labels;
+
+    console.log('Processed Data:', {
+        labels: chartLabels,
+        currentSeason: currentSeasonPrices,
+        lastSeason: lastSeasonPrices,
+        fiveYearAvg: fiveYearAvgPrices
+    });
+
+    const cfg = {
+        data: {
+            labels: chartLabels,
+            datasets: [
+                {
+                    type: 'line',
+                    label: '今期価格（円/kg）',
+                    data: currentSeasonPrices,
+                    borderColor: '#3F8A31',
+                    yAxisID: 'y_right',
+                    order: 1,
+                    spanGaps: true,
+                    tension: 0.2,
+                    pointRadius: 0,
+                },
+                {
+                    type: 'line',
+                    label: '前年同期（円/kg）',
+                    data: lastSeasonPrices,
+                    borderColor: '#B7D430',
+                    yAxisID: 'y_right',
+                    order: 2,
+                    spanGaps: true,
+                    tension: 0.2,
+                    pointRadius: 0,
+                },
+                {
+                    type: 'line',
+                    label: '過去5年平均（円/kg）',
+                    data: fiveYearAvgPrices,
+                    borderColor: '#888888',
+                    yAxisID: 'y_right',
+                    order: 3,
+                    spanGaps: true,
+                    tension: 0.2,
+                    pointRadius: 0,
+                }
+            ]
+        },
+        options: {
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'day',
+                        displayFormats: {
+                            day: 'M/d'
+                        }
+                    },
+                    title: { display: true, text: '日付' },
+                    ticks: {
+                        source: 'auto',
+                        autoSkip: true,
+                        maxTicksLimit: 12, // およそ1週間おきに目盛りを表示
+                        maxRotation: 45
+                    }
+                },
+                y_right: {
+                    type: 'linear',
+                    position: 'left',
+                    title: { display: true, text: '価格（円/kg）' },
+                    grid: { drawOnChartArea: false }
+                }
+            },
+            elements: {
+                line: { 
+                    lineTension: 0
+                }
+            },
+            plugins: { legend: { position: 'top' } }
+        }
+    };
+    
+    return cfg;
+}
+
+function renderYearPriceGraphConfig(yearData) {
+    if (typeof Chart === 'undefined') {
+        console.warn('[yearPriceGraph] Chart.js not loaded.');
+        return null;
+    }
+
+    const labels = [];
+    const currentSeasonPrices = [];
+    const lastSeasonPrices = [];
+    const fiveYearAvgPrices = [];
+
+    if (Array.isArray(yearData)) {
+        yearData.forEach(item => {
+            labels.push(item.target_date || '');
+            currentSeasonPrices.push(item.current_season_price != null ? item.current_season_price : null);
+            lastSeasonPrices.push(item.last_season_price != null ? item.last_season_price : null);
+            fiveYearAvgPrices.push(item.five_year_avg_price != null ? item.five_year_avg_price : null);
+        });
+    }
+
+    // データをそのまま使用（既にソート済み）
+    const chartLabels = labels;
+
+    const cfg = {
+        data: {
+            labels: chartLabels,
+            datasets: [
+                {
+                    type: 'line',
+                    label: '今期価格（円/kg）',
+                    data: currentSeasonPrices,
+                    borderColor: '#3F8A31',
+                    yAxisID: 'y_right',
+                    order: 1,
+                    spanGaps: true,
+                    tension: 0.2,
+                    pointRadius: 0,
+                },
+                {
+                    type: 'line',
+                    label: '前年同期（円/kg）',
+                    data: lastSeasonPrices,
+                    borderColor: '#B7D430',
+                    yAxisID: 'y_right',
+                    order: 2,
+                    spanGaps: true,
+                    tension: 0.2,
+                    pointRadius: 0,
+                },
+                {
+                    type: 'line',
+                    label: '過去5年平均（円/kg）',
+                    data: fiveYearAvgPrices,
+                    borderColor: '#888888',
+                    yAxisID: 'y_right',
+                    order: 3,
+                    spanGaps: true,
+                    tension: 0.2,
+                    pointRadius: 0,
+                }
+            ]
+        },
+        options: {
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'month',
+                        displayFormats: {
+                            month: 'y/M/d'
+                        }
+                    },
+                    title: { display: true, text: '日付' },
+                    ticks: {
+                        source: 'auto',
+                        autoSkip: false,
+                        maxRotation: 45
+                    }
+                },
+                y_right: {
+                    type: 'linear',
+                    position: 'left',
+                    title: { display: true, text: '価格（円/kg）' },
+                    grid: { drawOnChartArea: false }
+                }
+            },
+            elements: {
+                line: { 
+                    lineTension: 0
+                }
+            },
+            plugins: { legend: { position: 'top' } }
+        }
+    };
+    
+    return cfg;
+}
+

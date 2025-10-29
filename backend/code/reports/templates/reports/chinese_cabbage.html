@@ -1,19 +1,4 @@
 {% extends "reports/base_vegetable.html" %}
 {% load static %}
 
-
-{% block title %} - はくさい{% endblock %}
-
-
-{% block extra_head %}
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.5/dist/chart.umd.min.js" defer></script>
-    <!-- Full Calendar -->
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js' defer></script>
-    <link rel="stylesheet" href="{% static 'reports/style.css' %}">
-    <script defer>
-        const calcMarketsRaw = JSON.parse('{{ calc_markets_json|safe }}');
-    </script>
-    <script src="{% static 'reports/predict-line-graph.js' %}" defer></script>
-    <script src="{% static 'reports/calendar.js' %}" defer></script>
-{% endblock extra_head %}
+{% block vegetable_name %}白菜{% endblock vegetable_name %}

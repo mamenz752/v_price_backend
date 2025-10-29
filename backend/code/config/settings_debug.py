@@ -3,6 +3,7 @@
 """
 
 from .settings import *
+import os
 
 # デバッグログの設定
 LOGGING = {
@@ -21,7 +22,7 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': '/app/logs/debug.log',
+            'filename': os.path.join(BASE_DIR, 'logs', 'debug.log'),
             'formatter': 'verbose',
         },
     },

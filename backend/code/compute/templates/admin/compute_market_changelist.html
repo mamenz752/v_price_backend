@@ -1,0 +1,20 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools %}
+    <div class="object-tools">
+        <form action="compute_market/" method="POST" style="display: inline;">
+            {% csrf_token %}
+            <input type="submit" value="価格データの集計実行" class="button" style="float:right; margin-left: 5px;" />
+        </form>
+        <form action="compute_all/" method="POST" style="display: inline;">
+            {% csrf_token %}
+            <input type="submit" value="全データの集計実行" class="button" style="float:right; margin-left: 5px;" />
+        </form>
+        <form action="compute_reset/" method="POST" style="display: inline;">
+            {% csrf_token %}
+            <input type="submit" value="集計データのリセット" class="button" style="float:right; margin-left: 5px; background-color: #ba2121;" />
+        </form>
+        {{ block.super }}
+    </div>
+{% endblock %}

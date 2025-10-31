@@ -130,6 +130,80 @@ class IngestMarketAdmin(AdminImportMixin, admin.ModelAdmin):
     # 日付でのソート用
     date_hierarchy = 'target_date'
     
+    actions = ['import_price_data', 'import_all_data', 'delete_all_data']
+    
+    def delete_all_data(self, request, queryset):
+        if request.POST.get('confirmation') == 'yes':
+            try:
+                price_count = IngestMarket.objects.count()
+                weather_count = IngestWeather.objects.count()
+                
+                delete_price = request.POST.get('delete_price') == 'on'
+                delete_weather = request.POST.get('delete_weather') == 'on'
+                
+                if not delete_price and not delete_weather:
+                    messages.warning(request, '削除するデータが選択されていません。')
+                    return
+                
+                if delete_price:
+                    IngestMarket.objects.all().delete()
+                
+                if delete_weather:
+                    IngestWeather.objects.all().delete()
+                
+                message_parts = []
+                if delete_price:
+                    message_parts.append(f'価格データ: {price_count}件')
+                if delete_weather:
+                    message_parts.append(f'気象データ: {weather_count}件')
+                
+                messages.success(request, '以下のデータを削除しました：\n' + '\n'.join(message_parts))
+            except Exception as e:
+                messages.error(request, f'削除処理中にエラーが発生しました: {str(e)}')
+            return None
+            
+        # 確認画面の表示
+        context = {
+            'title': 'データの一括削除',
+            'price_count': IngestMarket.objects.count(),
+            'weather_count': IngestWeather.objects.count(),
+            'opts': self.model._meta,
+            'action': 'delete_all_data',
+            'selected': queryset
+        }
+        return TemplateResponse(request, 'ingest/admin_delete_all_confirmation.html', context)
+    delete_all_data.short_description = 'データの一括削除'
+    
+    def import_price_data(self, request, queryset):
+        try:
+            price_results = DataIngestor.import_all_price_data()
+            messages.success(request, f'価格データのインポートが完了しました！新規: {price_results.created}件, 更新: {price_results.updated}件')
+        except Exception as e:
+            messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
+    import_price_data.short_description = '価格データのインポート'
+    
+    def import_all_data(self, request, queryset):
+        try:
+            price_results = DataIngestor.import_all_price_data()
+            weather_results = DataIngestor.import_all_weather_data()
+            messages.success(request, 
+                f'全データのインポートが完了しました！\n'
+                f'価格データ - 新規: {price_results.created}件, 更新: {price_results.updated}件\n'
+                f'気象データ - 新規: {weather_results.created}件, 更新: {weather_results.updated}件'
+            )
+        except Exception as e:
+            messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
+    import_all_data.short_description = '全データのインポート'
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('import-all/', lambda request: admin.site.admin_view(IngestAdminSite().import_all_view)(request), name='import_all'),
+            path('import-price/', lambda request: admin.site.admin_view(IngestAdminSite().import_price_view)(request), name='import_price'),
+            path('delete-all/', lambda request: admin.site.admin_view(IngestAdminSite().delete_all_view)(request), name='delete_all'),
+        ]
+        return my_urls + urls
+    
     def get_import_context(self, request):
         return {
             'vegetables': Vegetable.objects.all(),
@@ -186,6 +260,80 @@ class IngestWeatherAdmin(AdminImportMixin, admin.ModelAdmin):
     search_fields = ("region__name",)
     # 日付でのソート用
     date_hierarchy = 'target_date'
+    
+    actions = ['import_weather_data', 'import_all_data', 'delete_all_data']
+    
+    def delete_all_data(self, request, queryset):
+        if request.POST.get('confirmation') == 'yes':
+            try:
+                price_count = IngestMarket.objects.count()
+                weather_count = IngestWeather.objects.count()
+                
+                delete_price = request.POST.get('delete_price') == 'on'
+                delete_weather = request.POST.get('delete_weather') == 'on'
+                
+                if not delete_price and not delete_weather:
+                    messages.warning(request, '削除するデータが選択されていません。')
+                    return
+                
+                if delete_price:
+                    IngestMarket.objects.all().delete()
+                
+                if delete_weather:
+                    IngestWeather.objects.all().delete()
+                
+                message_parts = []
+                if delete_price:
+                    message_parts.append(f'価格データ: {price_count}件')
+                if delete_weather:
+                    message_parts.append(f'気象データ: {weather_count}件')
+                
+                messages.success(request, '以下のデータを削除しました：\n' + '\n'.join(message_parts))
+            except Exception as e:
+                messages.error(request, f'削除処理中にエラーが発生しました: {str(e)}')
+            return None
+            
+        # 確認画面の表示
+        context = {
+            'title': 'データの一括削除',
+            'price_count': IngestMarket.objects.count(),
+            'weather_count': IngestWeather.objects.count(),
+            'opts': self.model._meta,
+            'action': 'delete_all_data',
+            'selected': queryset
+        }
+        return TemplateResponse(request, 'ingest/admin_delete_all_confirmation.html', context)
+    delete_all_data.short_description = 'データの一括削除'
+    
+    def import_weather_data(self, request, queryset):
+        try:
+            weather_results = DataIngestor.import_all_weather_data()
+            messages.success(request, f'気象データのインポートが完了しました！新規: {weather_results.created}件, 更新: {weather_results.updated}件')
+        except Exception as e:
+            messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
+    import_weather_data.short_description = '気象データのインポート'
+    
+    def import_all_data(self, request, queryset):
+        try:
+            price_results = DataIngestor.import_all_price_data()
+            weather_results = DataIngestor.import_all_weather_data()
+            messages.success(request, 
+                f'全データのインポートが完了しました！\n'
+                f'価格データ - 新規: {price_results.created}件, 更新: {price_results.updated}件\n'
+                f'気象データ - 新規: {weather_results.created}件, 更新: {weather_results.updated}件'
+            )
+        except Exception as e:
+            messages.error(request, f'インポート処理中にエラーが発生しました: {str(e)}')
+    import_all_data.short_description = '全データのインポート'
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('import-all/', lambda request: admin.site.admin_view(IngestAdminSite().import_all_view)(request), name='import_all'),
+            path('import-weather/', lambda request: admin.site.admin_view(IngestAdminSite().import_weather_view)(request), name='import_weather'),
+            path('delete-all/', lambda request: admin.site.admin_view(IngestAdminSite().delete_all_view)(request), name='delete_all'),
+        ]
+        return my_urls + urls
     
     def get_import_context(self, request):
         return {

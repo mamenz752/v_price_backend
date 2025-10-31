@@ -1,0 +1,20 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools %}
+    <div class="object-tools">
+        <form action="import-all/" method="POST" style="display: inline;">
+            {% csrf_token %}
+            <input type="submit" value="全データのインポート" class="button" style="float:right; margin-left: 5px;" />
+        </form>
+        <form action="import-weather/" method="POST" style="display: inline;">
+            {% csrf_token %}
+            <input type="submit" value="気象データのインポート" class="button" style="float:right; margin-left: 5px;" />
+        </form>
+        <form action="delete-all/" method="POST" style="display: inline;">
+            {% csrf_token %}
+            <input type="submit" value="データの削除" class="button" style="float:right; margin-left: 5px; background-color: #ba2121;" />
+        </form>
+        {{ block.super }}
+    </div>
+{% endblock %}

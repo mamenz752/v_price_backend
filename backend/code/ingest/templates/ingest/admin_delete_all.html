@@ -41,42 +41,42 @@
     
     {% if success %}
     <div class="module">
-        <h2>蜑企勁邨先棡</h2>
+        <h2>削除結果</h2>
         
         <ul>
             {% if deleted_price_count is not None %}
-            <li>萓｡譬ｼ繝・・繧ｿ: {{ deleted_price_count }}莉ｶ 蜑企勁</li>
+            <li>価格データ: {{ deleted_price_count }}件 削除</li>
             {% endif %}
             {% if deleted_weather_count is not None %}
-            <li>豌苓ｱ｡繝・・繧ｿ: {{ deleted_weather_count }}莉ｶ 蜑企勁</li>
+            <li>気象データ: {{ deleted_weather_count }}件 削除</li>
             {% endif %}
         </ul>
         
-        <p><a href="{% url 'admin:index' %}" class="button">邂｡逅・判髱｢縺ｫ謌ｻ繧・/a></p>
+        <p><a href="{% url 'admin:index' %}" class="button">管理画面に戻る</a></p>
     </div>
     {% else %}
     <div class="module">
-        <h2>繝・・繧ｿ蜑企勁縺ｮ遒ｺ隱・/h2>
+        <h2>データ削除の確認</h2>
         
-        <p class="warning">隴ｦ蜻・ 縺薙・謫堺ｽ懊・蜿悶ｊ豸医○縺ｾ縺帙ｓ縲る∈謚槭＠縺溘ョ繝ｼ繧ｿ縺ｯ螳悟・縺ｫ蜑企勁縺輔ｌ縺ｾ縺吶・/p>
+        <p class="warning">警告: この操作は取り消せません。選択したデータは完全に削除されます。</p>
         
-        <p>迴ｾ蝨ｨ縺ｮ繝・・繧ｿ莉ｶ謨ｰ:</p>
+        <p>現在のデータ件数:</p>
         <ul>
-            <li>萓｡譬ｼ繝・・繧ｿ: {{ price_count }}莉ｶ</li>
-            <li>豌苓ｱ｡繝・・繧ｿ: {{ weather_count }}莉ｶ</li>
+            <li>価格データ: {{ price_count }}件</li>
+            <li>気象データ: {{ weather_count }}件</li>
         </ul>
         
         <form method="post">
             {% csrf_token %}
             
             <fieldset class="module aligned">
-                <h2>蜑企勁蟇ｾ雎｡縺ｮ驕ｸ謚・/h2>
+                <h2>削除対象の選択</h2>
                 
                 <div class="form-row">
                     <div>
                         <label for="delete_price">
                             <input type="checkbox" name="delete_price" id="delete_price">
-                            萓｡譬ｼ繝・・繧ｿ繧貞炎髯､
+                            価格データを削除
                         </label>
                     </div>
                 </div>
@@ -85,26 +85,26 @@
                     <div>
                         <label for="delete_weather">
                             <input type="checkbox" name="delete_weather" id="delete_weather">
-                            豌苓ｱ｡繝・・繧ｿ繧貞炎髯､
+                            気象データを削除
                         </label>
                     </div>
                 </div>
             </fieldset>
             
             <div class="submit-row">
-                <input type="submit" value="驕ｸ謚槭＠縺溘ョ繝ｼ繧ｿ繧貞炎髯､" class="delete-button" name="_delete">
-                <a href="{% url 'admin:index' %}" class="button cancel-link">繧ｭ繝｣繝ｳ繧ｻ繝ｫ</a>
+                <input type="submit" value="選択したデータを削除" class="delete-button" name="_delete">
+                <a href="{% url 'admin:index' %}" class="button cancel-link">キャンセル</a>
             </div>
         </form>
     </div>
     {% endif %}
     
     <div class="module">
-        <h2>繝ｪ繝ｳ繧ｯ</h2>
+        <h2>リンク</h2>
         <ul>
-            <li><a href="{% url 'admin:ingest_ingestmarket_changelist' %}">萓｡譬ｼ繝・・繧ｿ荳隕ｧ</a></li>
-            <li><a href="{% url 'admin:ingest_ingestweather_changelist' %}">豌苓ｱ｡繝・・繧ｿ荳隕ｧ</a></li>
-            <li><a href="{% url 'admin:index' %}">邂｡逅・・繝ｼ繝</a></li>
+            <li><a href="{% url 'admin:ingest_ingestmarket_changelist' %}">価格データ一覧</a></li>
+            <li><a href="{% url 'admin:ingest_ingestweather_changelist' %}">気象データ一覧</a></li>
+            <li><a href="{% url 'admin:index' %}">管理ホーム</a></li>
         </ul>
     </div>
 </div>

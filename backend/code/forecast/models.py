@@ -58,6 +58,13 @@ class ForecastModelVersion(TimeStampedModel):
         return self.target_month.__str__() + " - " + self.model_kind.tag_name + " - " + ("Active" if self.is_active else "Inactive")
     
 class ForecastModelCoef(TimeStampedModel):
+    model_version = models.ForeignKey(
+        ForecastModelVersion,
+        on_delete=models.CASCADE,
+        related_name="coefficients",
+        null=True,  # 既存のレコード用に一時的にnullを許可
+        default=None
+    )
     is_segment = models.BooleanField(default=False)
     variable = models.ForeignKey(
         ForecastModelVariable,
@@ -70,9 +77,16 @@ class ForecastModelCoef(TimeStampedModel):
     standard_error = models.FloatField()
 
     def __str__(self):
-        return self.variable.name + " - Coef: " + str(self.coef)
+        return f"{self.model_version} - {self.variable.name} - Coef: {self.coef}"
 
 class ForecastModelEvaluation(TimeStampedModel):
+    model_version = models.ForeignKey(
+        ForecastModelVersion,
+        on_delete=models.SET_NULL,  # モデルバージョンが削除されても評価は保持
+        related_name='evaluations',
+        null=True,
+        blank=True
+    )
     multi_r = models.FloatField()
     heavy_r2 = models.FloatField()
     adjusted_r2 = models.FloatField()
@@ -86,5 +100,5 @@ class ForecastModelEvaluation(TimeStampedModel):
     total_variation = models.FloatField()
 
     def __str__(self):
-        return "R²: " + str(self.heavy_r2) + ", RMSE: " + str(self.rmse)
+        return f"{self.model_version} - R²: {self.heavy_r2}, RMSE: {self.rmse}"
     

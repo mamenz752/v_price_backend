@@ -11,6 +11,62 @@ class FeedbackService:
     """
     フィードバックデータを取得・管理するサービスクラス
     """
+    
+    @staticmethod
+    def format_variable_term(previous_term: int) -> str:
+        """
+        期間を月単位で表示するフォーマッター
+        """
+        months = previous_term * 0.5
+        if months == 0:
+            return "現在"
+        elif months == 0.5:
+            return "0.5か月前"
+        else:
+            return f"{months}か月前"
+            
+    @staticmethod
+    def format_variable_name(name: str) -> str:
+        """
+        変数名を日本語表示用にフォーマット
+        """
+        name_mapping = {
+            # 価格関連
+            'price': '価格',
+            'price_avg': '平均価格',
+            'price_std': '価格標準偏差',
+            
+            # 気象関連
+            'temperature': '気温',
+            'mean_temp': '平均気温',
+            'max_temp': '最高気温',
+            'min_temp': '最低気温',
+            'sum_precipitation': '降水量の合計',
+            'rain_days': '降水日数',
+            'sunshine_duration': '日照時間',
+            'sun_days': '日照日数',
+            'ave_humidity': '平均湿度',
+            'min_humidity': '最小湿度',
+            'max_humidity': '最大湿度',
+            'wind_speed': '風速',
+            'snow_days': '降雪日数',
+            'snow_coverage': '積雪量',
+
+            # 生産関連
+            'production': '生産量',
+            'yield_per_area': '単位面積当たり収量',
+            'planted_area': '作付面積',
+            'shipment': '出荷量',
+
+            # 市場関連
+            'market_amount': '市場取扱量',
+            'transaction_volume': '取引量',
+            'market_price': '市場価格',
+            
+            # デフォルト値（マッピングがない場合）
+            'const': '定数項',
+        }
+        return name_mapping.get(name, name)  # マッピングがない場合は元の名前を使用
     @staticmethod
     def get_active_model(vegetable: str, month: int):
         """
@@ -34,26 +90,49 @@ class FeedbackService:
         """
         指定された野菜と月の最新の予測精度メトリクスを取得
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug("get_latest_metrics called: vegetable=%s, month=%s", vegetable, month)
         model_version = FeedbackService.get_active_model(vegetable, month)
         if not model_version:
+            logger.debug("No active model found for %s month=%s", vegetable, month)
             return None
 
         try:
+            logger.debug("Querying ForecastModelEvaluation for model_version id=%s", getattr(model_version, 'id', None))
             metrics = ForecastModelEvaluation.objects.filter(
                 model_version=model_version
             ).order_by('-created_at').first()
 
             if not metrics:
-                return None
+                logger.debug("No ForecastModelEvaluation entries for model_version id=%s", getattr(model_version, 'id', None))
+                # フォールバック: 同じ model_kind と target_month の最新の評価を探す
+                try:
+                    fallback = ForecastModelEvaluation.objects.filter(
+                        model_version__model_kind=model_version.model_kind,
+                        model_version__target_month=model_version.target_month
+                    ).order_by('-created_at').first()
+                    if fallback:
+                        logger.info("Falling back to evaluation id=%s from model_version id=%s", getattr(fallback, 'id', None), getattr(fallback.model_version, 'id', None))
+                        metrics = fallback
+                    else:
+                        logger.debug("No fallback evaluation found for model_kind id=%s target_month=%s", getattr(model_version.model_kind, 'id', None), model_version.target_month)
+                        return None
+                except Exception as e:
+                    logger.exception("Error while attempting fallback evaluation lookup: %s", e)
+                    return None
 
-            return {
-                'r2': metrics.heavy_r2,
+            result = {
+                'r2': metrics.adjusted_r2,
                 'std_error': metrics.standard_error,
                 'mae': metrics.rmse,  # MAEがないのでRMSEを使用
                 'rmse': metrics.rmse,
                 'f_significance': metrics.sign_f
             }
-        except ForecastModelEvaluation.DoesNotExist:
+            logger.debug("Returning metrics for model_version id=%s: %s", getattr(model_version, 'id', None), result)
+            return result
+        except Exception as e:
+            logger.exception("Error while fetching latest metrics for %s month=%s: %s", vegetable, month, e)
             return None
 
     @staticmethod

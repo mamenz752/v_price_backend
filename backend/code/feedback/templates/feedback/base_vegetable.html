@@ -5,17 +5,34 @@
 <div class="container">
     <h2>{% block vegetable_name %}{% endblock %}</h2>
 
-    <!-- 月別タブ -->
-    <ul class="nav nav-tabs mb-4">
-        {% for month in months %}
-        <li class="nav-item">
-            <a class="nav-link {% if month == current_month %}active{% endif %}" 
-               href="{% url request.resolver_match.view_name %}?month={{ month }}">
-                {{ month }}月
+    <!-- タブナビゲーション -->
+    <ul class="nav nav-tabs mb-4" id="vegetableTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link active" id="feedback-tab" data-bs-toggle="tab" href="#feedback-content" role="tab">
+                フィードバック
             </a>
         </li>
-        {% endfor %}
+        <li class="nav-item" role="presentation">
+            <a class="nav-link" id="model-tab" data-bs-toggle="tab" href="#model-content" role="tab">
+                モデル管理
+            </a>
+        </li>
     </ul>
+
+    <div class="tab-content" id="vegetableTabsContent">
+        <!-- フィードバックタブコンテンツ -->
+        <div class="tab-pane fade show active" id="feedback-content" role="tabpanel">
+            <!-- 月別タブ -->
+            <ul class="nav nav-pills mb-4">
+                {% for month in months %}
+                <li class="nav-item">
+                    <a class="nav-link {% if month == current_month %}active{% endif %}" 
+                       href="{% url request.resolver_match.view_name %}?month={{ month }}">
+                        {{ month }}月
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
 
     <div class="row">
         <div class="col-md-6">
@@ -114,7 +131,14 @@
         </div>
     </div>
 
-    {% block additional_content %}{% endblock %}
+            {% block additional_content %}{% endblock %}
+        </div>
+
+        <!-- モデル管理タブコンテンツ -->
+        <div class="tab-pane fade" id="model-content" role="tabpanel">
+            {% include "feedback/model_management.html" %}
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -123,8 +147,23 @@
 <script>
     // 予測精度の推移グラフを描画
     document.addEventListener('DOMContentLoaded', function() {
-        var accuracyData = {{ accuracy_data|safe }};
+        let accuracyData = {{ accuracy_data|safe }}
         Plotly.newPlot('accuracy_trend', accuracyData.data, accuracyData.layout);
-    });
+
+        // タブの切り替え処理
+        var triggerTabList = [].slice.call(document.querySelectorAll('#vegetableTabs a'));
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl);
+            triggerEl.addEventListener('click', function (event) {
+                event.preventDefault();
+                tabTrigger.show();
+            });
+        });
+
+        // URLにtab=modelがある場合、モデル管理タブを表示
+        if (window.location.search.includes('tab=model')) {
+            document.querySelector('#model-tab').click();
+        }
+    })
 </script>
 {% endblock %}

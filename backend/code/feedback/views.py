@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.views.generic import TemplateView
+from .services import FeedbackService
 
 class IndexView(TemplateView):
     """
@@ -12,98 +13,120 @@ class IndexView(TemplateView):
         context['title'] = 'フィードバック'
         return context
 
-class ChineseCabbageView(TemplateView):
+class BaseVegetableView(TemplateView):
+    """
+    野菜フィードバックページの基本ビュー
+    """
+    vegetable_name = None  # サブクラスで設定する
+
+    def get_context_data(self, **kwargs):
+        if not self.vegetable_name:
+            raise ValueError("vegetable_name must be set in subclass")
+
+        context = super().get_context_data(**kwargs)
+        current_month = int(self.request.GET.get('month', 1))
+        
+        service = FeedbackService()
+        metrics = service.get_latest_metrics(self.vegetable_name, current_month)
+        evaluation = service.get_latest_evaluation(self.vegetable_name, current_month)
+        variables = service.get_latest_variables(self.vegetable_name, current_month)
+        accuracy_data = service.get_accuracy_history(self.vegetable_name, current_month)
+
+        context.update({
+            'months': range(1, 13),
+            'current_month': current_month,
+            'metrics': metrics or self.get_default_metrics(),
+            'evaluation': evaluation or self.get_default_evaluation(current_month),
+            'variables': variables or self.get_default_variables(),
+            'accuracy_data': accuracy_data or self.get_default_accuracy_data(current_month),
+        })
+        return context
+    
+    def get_default_metrics(self):
+        return {
+            'r2': None,
+            'std_error': None,
+            'mae': None,
+            'rmse': None,
+            'f_significance': None
+        }
+    
+    def get_default_evaluation(self, month):
+        return {
+            'status': '未評価',
+            'description': f'{month}月のアクティブなモデルが存在しません。'
+        }
+    
+    def get_default_variables(self):
+        return []
+    
+    def get_default_accuracy_data(self, month):
+        return {
+            'data': [{
+                'x': [],
+                'y': [],
+                'type': 'scatter',
+                'name': '予測精度'
+            }],
+            'layout': {
+                'title': f'{month}月の予測精度（データなし）',
+                'xaxis': {'title': '期間'},
+                'yaxis': {'title': 'R²'}
+            }
+        }
+
+class ChineseCabbageView(BaseVegetableView):
     """
     白菜のフィードバックページを表示するビュー
     """
     template_name = 'feedback/chinese_cabbage.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = '白菜フィードバック'
-        context['vegetable'] = '白菜'
-        return context
+    vegetable_name = '白菜'
 
-class CabbageView(TemplateView):
+class CabbageView(BaseVegetableView):
     """
     キャベツのフィードバックページを表示するビュー
     """
     template_name = 'feedback/cabbage.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'キャベツフィードバック'
-        context['vegetable'] = 'キャベツ'
-        return context
+    vegetable_name = 'キャベツ'
 
-class CucumberView(TemplateView):
+class CucumberView(BaseVegetableView):
     """
     きゅうりのフィードバックページを表示するビュー
     """
     template_name = 'feedback/cucumber.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'きゅうりフィードバック'
-        context['vegetable'] = 'きゅうり'
-        return context
+    vegetable_name = 'きゅうり'
 
-class TomatoView(TemplateView):
+class TomatoView(BaseVegetableView):
     """
     トマトのフィードバックページを表示するビュー
     """
     template_name = 'feedback/tomato.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'トマトフィードバック'
-        context['vegetable'] = 'トマト'
-        return context
+    vegetable_name = 'トマト'
 
-class EggplantView(TemplateView):
+class EggplantView(BaseVegetableView):
     """
     なすのフィードバックページを表示するビュー
     """
     template_name = 'feedback/eggplant.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'なすフィードバック'
-        context['vegetable'] = 'なす'
-        return context
+    vegetable_name = 'なす'
 
-class RadishView(TemplateView):
+class RadishView(BaseVegetableView):
     """
     大根のフィードバックページを表示するビュー
     """
     template_name = 'feedback/radish.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = '大根フィードバック'
-        context['vegetable'] = '大根'
-        return context
+    vegetable_name = '大根'
 
-class PotatoView(TemplateView):
+class PotatoView(BaseVegetableView):
     """
     じゃがいものフィードバックページを表示するビュー
     """
     template_name = 'feedback/potato.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'じゃがいもフィードバック'
-        context['vegetable'] = 'じゃがいも'
-        return context
+    vegetable_name = 'じゃがいも'
 
-class OnionView(TemplateView):
+class OnionView(BaseVegetableView):
     """
     玉ねぎのフィードバックページを表示するビュー
     """
     template_name = 'feedback/onion.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = '玉ねぎフィードバック'
-        context['vegetable'] = '玉ねぎ'
-        return context
+    vegetable_name = '玉ねぎ'

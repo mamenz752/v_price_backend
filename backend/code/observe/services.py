@@ -10,6 +10,7 @@ from forecast.models import (
     ForecastModelVariable,
     ForecastModelKind
 )
+from forecast.models import ForecastModelFeatureSet
 from compute.models import ComputeWeather, ComputeMarket
 from observe.models import ObserveReport
 from ingest.models import Region
@@ -26,15 +27,14 @@ class ObserveService:
         self.cfg = config or ObserveServiceConfig()
         self._region = Region.objects.get(name=self.cfg.region_name)
 
-    def _get_target_period(self, year: int, month: int, half: str) -> Dict:
+    def _get_target_period(self, year: int, month: int, half: str, max_coef_term: int) -> Dict:
         """指定された年月から予測対象期間を計算する"""
         periods = []
         current_year = year
         current_month = month
         current_half = half
 
-        # 3期前までのデータを収集
-        for _ in range(4):  # 現在の期も含めて4期分
+        for _ in range(max_coef_term + 1):
             periods.append({
                 'year': current_year,
                 'month': current_month,
@@ -101,21 +101,46 @@ class ObserveService:
     def predict_for_model_version(self, model_version: ForecastModelVersion, year: int, month: int, half: str) -> None:
         """特定のモデルバージョンに基づいて予測を実行し、結果を保存する"""
         # モデルの係数を取得
+        # coefs = ForecastModelCoef.objects.filter(
+        #     variable__forecast_model_coefs__id__in=ForecastModelCoef.objects.filter(
+        #         variable__forecast_model_feature_sets__model_kind=model_version.model_kind,
+        #         variable__forecast_model_feature_sets__target_month=model_version.target_month,
+        #         model_version=model_version
+        #     ).values_list('id', flat=True)
+        # ).select_related('variable')
+
+        # FIXME:: なぜか予測値が増えて一定の結果が出ないので直す
         coefs = ForecastModelCoef.objects.filter(
-            variable__forecast_model_coefs__id__in=ForecastModelCoef.objects.filter(
-                variable__forecast_model_feature_sets__model_kind=model_version.model_kind,
-                variable__forecast_model_feature_sets__target_month=model_version.target_month
-            ).values_list('id', flat=True)
+            model_version=model_version,
+            model_version__is_active=True
         ).select_related('variable')
 
+        import logging
+        logger = logging.getLogger(__name__)
+        if not coefs.exists():
+            logger.info("predict_for_model_version: no coefficients found for model_version id=%s, skipping prediction", getattr(model_version, 'id', None))
+            return None
+
+        max_coef_term = max(coef.variable.previous_term for coef in coefs)
+        print(f"使用する最大の係数期間: {max_coef_term}")
+
         # 予測対象期間のデータを取得
-        periods = self._get_target_period(year, month, half)
+        periods = self._get_target_period(year, month, half, max_coef_term)
+        # TODO: ここからコードリーディング
         weather_data = self._get_weather_data(periods)
-        market_data = self._get_market_data(periods, model_version.model_kind.vegetable.id)
+        # market_data = self._get_market_data(periods, model_version.model_kind.vegetable.id)
+
+        print(f"気象データ: {weather_data}")
 
         # 予測値を計算
         prediction = 0.0
         const_value = 0.0
+
+        # モデルで定義されている (name, previous_term) の集合を先に取得しておく
+        feature_vars = set(ForecastModelFeatureSet.objects.filter(
+            model_kind=model_version.model_kind,
+            target_month=model_version.target_month
+        ).values_list('variable__name', 'variable__previous_term'))
 
         for coef in coefs:
             if coef.variable.name == 'const':
@@ -129,17 +154,20 @@ class ObserveService:
 
             target_period = periods[term]
             period_key = f"{target_period['year']}_{target_period['month']}_{target_period['half']}"
+            print(f"期間キー: {period_key}")
+            period_data = weather_data.get(period_key, {})
+            print("期間データ:", period_data)
 
-            # 変数の値を取得
+            # 変数の値を取得（モデルで定義された変数かつ previous_term が一致する場合のみ）
             var_value = None
-            if coef.variable.name in ['max_temp', 'mean_temp', 'min_temp', 'sum_precipitation', 'sunshine_duration', 'ave_humidity']:
-                if period_key in weather_data:
-                    var_value = weather_data[period_key].get(coef.variable.name)
-            elif coef.variable.name in ['average_price', 'volume']:
-                if period_key in market_data:
-                    var_value = market_data[period_key].get(coef.variable.name)
+            var_key = (coef.variable.name, coef.variable.previous_term)
+            if var_key in feature_vars:
+                # period_data は該当期間の weather データ辞書なので、variable 名で存在を確認
+                if coef.variable.name in period_data:
+                    var_value = period_data.get(coef.variable.name)
 
             if var_value is not None:
+                print(f"変数 {coef.variable.name} (期間: {term}) の値: {var_value} * 係数: {coef.coef}")
                 prediction += coef.coef * var_value
 
         # 定数項を加算

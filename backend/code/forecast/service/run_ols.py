@@ -330,12 +330,20 @@ class ForecastOLSRunner:
             from observe.services import ObserveService, ObserveServiceConfig
             observe_service = ObserveService(ObserveServiceConfig(region_name=self.cfg.region_name))
             current_year = datetime.now().year
+
+            # TODO: 予測実行の時期をうまいこと指定する
             try:
                 observe_service.observe_latest_model(
                     model_kind.id,
                     current_year,
                     target_month,
-                    "前半"  # または適切な半期を指定
+                    "前半"
+                )
+                observe_service.observe_latest_model(
+                    model_kind.id,
+                    current_year,
+                    target_month,
+                    "後半"
                 )
             except Exception as e:
                 print(f"予測の実行中にエラーが発生しました: {str(e)}")

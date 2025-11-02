@@ -51,6 +51,7 @@ docker system prune -a --volumes
 - [インポートシステムの解説](docs/import_system.md)
 - [データ集計処理の解説](docs/compute_system.md)
 - [価格予測システムの解説](docs/forecast_system.md)
+ - [モデル実行フローとトラブルシュート](docs/forecast_execution.md)
 - [システムアーキテクチャ](docs/architecture.md)
 - [開発者ガイド](docs/developer_guide.md)
 - [アプリケーションルーティングマップ](docs/routing_map.md)
@@ -176,3 +177,30 @@ docker compose logs web
 ```bash
 docker compose exec web python manage.py showmigrations
 ```
+
+### モデル実行（UI 経由）の確認とログ取得
+
+フィードバック画面から「モデル実行」ボタンを押して問題が発生した場合の確認手順です。
+
+- ブラウザで `/feedback/<vegetable>` を開き、モデル実行を行う（例: `/feedback/cabbage`）。
+- コンテナ環境の場合、Web コンテナの Django ログを確認します（最新 500 行）:
+
+```powershell
+docker compose exec web tail -n 500 /code/logs/django.log
+```
+
+- エラー（Traceback, ERROR）だけ抽出するには:
+
+```powershell
+docker compose exec web grep -Ei "ERROR|Traceback|Exception" /code/logs/django.log | tail -n 200 || true
+```
+
+- 特定時刻で絞るにはログのタイムスタンプを利用します（例）:
+
+```powershell
+docker compose exec web grep "2025-11-02 20:45" /code/logs/django.log || true
+```
+
+- ログが出ない・302 リダイレクトだけ起きる場合は、未認証（ログインが必要で /accounts/login/ にリダイレクト）やビューが即時リダイレクトしている可能性があります。上のログで Location ヘッダや Django の INFO ログを確認してください。
+
+詳細なモデル実行フローと調査手順は `docs/forecast_execution.md` を参照してください。

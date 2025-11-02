@@ -173,14 +173,14 @@ class ForecastModelService:
             return None
 
     @transaction.atomic
-    def run_model(self, tag_name: str, target_month: int, variable_names: List[str]) -> bool:
+    def run_model(self, tag_name: str, target_month: int, variables) -> bool:
         """
         指定されたモデルを実行する
 
         Args:
             tag_name: モデルの種類を示すタグ名
             target_month: 対象月（1-12）
-            variable_names: 使用する変数名のリスト
+            variables: 使用する変数のクエリセット
 
         Returns:
             bool: モデルの実行が成功したかどうか
@@ -194,8 +194,8 @@ class ForecastModelService:
             model_kind = ForecastModelKind.objects.get(tag_name=tag_name)
 
             # 変数を取得
-            logger.info(f"変数の取得: {variable_names}")
-            variables = ForecastModelVariable.objects.filter(name__in=variable_names)
+            logger.info(f"変数の取得: {variables}")
+            # variables = ForecastModelVariable.objects.filter(name__in=variable_names)
             if not variables:
                 logger.error("指定された変数が見つかりません")
                 return False
@@ -208,13 +208,13 @@ class ForecastModelService:
             runner = ForecastOLSRunner(config=config)
 
             try:
-                variable_names = [var.name for var in variables]
-                logger.info(f"モデル実行開始: {model_kind.tag_name}, 月={target_month}, 変数={variable_names}")
+                # variable_names = [var.name for var in variables]
+                logger.info(f"モデル実行開始: {model_kind.tag_name}, 月={target_month}, 変数={variables}")
 
                 model_version = runner.fit_and_persist(
                     model_kind.tag_name,
                     target_month,
-                    variable_names
+                    variables
                 )
 
                 if model_version:

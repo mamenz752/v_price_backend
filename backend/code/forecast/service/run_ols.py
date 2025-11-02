@@ -33,7 +33,7 @@ class ForecastOLSRunner:
         self.data_builder = data_builder or ForecastModelDataBuilder(region_name=config.region_name if config else '広島')
         self.cfg = config or ForecastOLSConfig()
 
-    def prepare_regression_data(self, model_name: str, target_month: int, year: int = None, variable_names: Optional[List[str]] = None) -> tuple:
+    def prepare_regression_data(self, model_name: str, target_month: int, vals: List[int]) -> tuple:
         """
         回帰分析用のデータを準備する
         複数年（2021-2025年）のデータを扱うように更新
@@ -41,8 +41,8 @@ class ForecastOLSRunner:
         Args:
             model_name (str): モデル名（例: "キャベツ春まき"）
             target_month (int): 対象月（1〜12）
-            year (int, optional): 対象年。指定しない場合は現在の年
-            
+            variables (List[int]): 使用する変数のIDリスト
+
         Returns:
             tuple: (X, y, variable_list)
                 X: 特徴量行列
@@ -51,8 +51,10 @@ class ForecastOLSRunner:
         """
         # ForecastModelDataBuilderからデータセットを取得
         # variable_names が渡されていればそれをビルダーに伝えて特徴量セット未登録時も動作するようにする
-        forecast_dataset = self.data_builder.build_forecast_dataset(model_name, target_month, year, variable_names=variable_names)
-        
+
+        vals_list = list(vals)
+        forecast_dataset = self.data_builder.build_forecast_dataset(model_name, target_month, vals=vals_list)
+
         if not forecast_dataset or forecast_dataset['X'].empty or not forecast_dataset['Y']:
             raise ValueError(f"モデル '{model_name}' の {target_month} 月のデータセットが見つかりませんでした。")
         
@@ -79,6 +81,7 @@ class ForecastOLSRunner:
             X.columns = [f"{col[0]}_{col[1]}" for col in X.columns]
             
             print(f"INFO: ピボットテーブル作成成功 - 行数: {X.shape[0]}, 列数: {X.shape[1]}")
+            print(f"DEBUG: ピボットテーブルのサンプルデータ:\n{X.columns.tolist()}            docker compose exec web tail -n 200 /code/logs/django.log")
             
         except Exception as e:
             # デバッグ情報を出力
@@ -148,6 +151,8 @@ class ForecastOLSRunner:
         n = len(y)
         p = X.shape[1]
 
+        print(f"確認：説明変数自動削除前：{X.columns.tolist()}")
+
         # 観測数が不足している場合、自動的に変数を削減して対応を試みる
         if n < (p + getattr(self.cfg, 'min_obs_margin', 1) if hasattr(self, 'cfg') else p + 1):
             # 利用可能な最大変数数
@@ -187,51 +192,44 @@ class ForecastOLSRunner:
                 print(f"変数リスト作成エラー（{col}）: {str(e)}")
                 continue
 
-        print(f"最終データセット - X: {X.shape}, y: {len(y)}")
+        print(f"最終データセット - X: {X.shape}, y: {len(y)}, variables: {variable_list}")
 
         return X, y, variable_list
 
-    def fit_and_persist(self, model_name: str, target_month: int, variable_names: List[str], year: int = None) -> Optional[ForecastModelVersion]:
+    def fit_and_persist(self, model_name: str, target_month: int, vals: List[int]) -> Optional[ForecastModelVersion]:
         """
         モデルの学習と結果の永続化を行う
         
         Args:
             model_name (str): モデル名（例: "キャベツ春まき"）
             target_month (int): 対象月（1〜12）
-            variable_names (List[str]): 使用する変数名のリスト
-            year (int, optional): 対象年。指定しない場合は現在の年
+            vals (List[int]): 使用する変数のIDリスト
             
         Returns:
             Optional[ForecastModelVersion]: 作成されたモデルバージョン
         """
         logger = logging.getLogger(__name__)
-        logger.info(f"fit_and_persist開始: モデル={model_name}, 月={target_month}, 変数={variable_names}")
+        logger.info(f"fit_and_persist開始: モデル={model_name}, 月={target_month}, 変数={vals}")
 
         # 年が指定されていない場合は現在の年を使用
-        if year is None:
-            year = datetime.now().year
+        # if year is None:
+        #     year = datetime.now().year
             
         # モデル種類を取得
         model_kind = self.data_builder.get_model_kind_by_name(model_name)
         if not model_kind:
             raise ValueError(f"モデル種類 '{model_name}' は見つかりませんでした。")
-            
-        # 変数を取得
-        logger = logging.getLogger(__name__)
-        logger.info(f"変数の取得を開始: {variable_names}")
-        
-        variables = ForecastModelVariable.objects.filter(name__in=variable_names)
-        if not variables:
-            logger.error(f"変数が見つかりません: {variable_names}")
-            raise ValueError(f"指定された変数が見つかりません: {variable_names}")
-        
-        logger.info(f"取得された変数: {[var.name for var in variables]}")
         
         # データの準備
-        logger.info(f"重回帰分析開始: モデル={model_name}, 月={target_month}, 変数={variable_names}")
+        logger.info(f"重回帰分析開始: モデル={model_name}, 月={target_month}, 変数={vals}")
+        # 変数リストを作成
+        # vals_ids = [var.id for var in variables]
 
         try:
-            X, y, variable_list = self.prepare_regression_data(model_name, target_month, year, variable_names=variable_names)
+            # prepare_regression_data のシグネチャを変えたため、キーワードで渡す
+            # FIXME: ここがわからん
+            X, y, variable_list = self.prepare_regression_data(model_name, target_month, vals=vals)
+            logger.info(f"データ準備完了: X shape={X.shape}, y length={len(y)}")
             logger.info(f"データ準備完了: X shape={X.shape}, y length={len(y)}")
         except Exception as e:
             logger.error(f"データ準備エラー: {str(e)}", exc_info=True)
@@ -251,7 +249,7 @@ class ForecastOLSRunner:
         # 予測・残差・指標
         y_pred = model.predict(Xc)
         resid = y - y_pred
-        rmse = float(np.sqrt(((y - y_pred) ** 2).mean()))
+        rmse = float(np.sqrt(((resid) ** 2).mean()))
         
         # 回帰統計量
         n_obs = model.nobs
@@ -273,24 +271,17 @@ class ForecastOLSRunner:
             # 以前のアクティブなモデルを非アクティブ化
             try:
                 if self.cfg.deactivate_previous:
-                    count = ForecastModelVersion.objects.filter(
+                    deact_qs = ForecastModelVersion.objects.filter(
                         model_kind=model_kind,
                         target_month=target_month,
                         is_active=True
-                    ).update(is_active=False)
-                    logger.info(f"非アクティブ化されたモデル数: {count}")
+                    )
+                    deact_count = deact_qs.update(is_active=False)
+                    logger.info(f"非アクティブ化されたモデル数: {deact_count}")
             except Exception as e:
                 logger.error(f"既存モデルの非アクティブ化でエラーが発生: {str(e)}")
                 raise
-                
-            # 既存のアクティブモデルを非アクティブ化
-            if self.cfg.deactivate_previous:
-                ForecastModelVersion.objects.filter(
-                    model_kind=model_kind,
-                    target_month=target_month,
-                    is_active=True
-                ).update(is_active=False)
-
+            
             # モデルバージョンの作成
             logger.info(f"モデルバージョンの作成を開始: モデル={model_kind.tag_name}, 月={target_month}")
             try:
@@ -305,29 +296,23 @@ class ForecastOLSRunner:
                 raise
 
             # 既存の特徴量セットを削除
-            ForecastModelFeatureSet.objects.filter(
-                model_kind=model_kind,
-                target_month=target_month
-            ).delete()
+            deleted_count, _ = ForecastModelFeatureSet.objects.filter(model_kind=model_kind, target_month=target_month).delete()
+            fs_objs = []
+            variables = ForecastModelVariable.objects.filter(pk__in=vals)
+            for var in variables:
+                fs = ForecastModelFeatureSet(
+                    model_kind=model_kind,
+                    target_month=target_month,
+                    variable=var  # var は ForecastModelVariable オブジェクトの想定
+                )
+                fs_objs.append(fs)
+            if fs_objs:
+                ForecastModelFeatureSet.objects.bulk_create(fs_objs)
+            logger.info("Recreated ForecastModelFeatureSet: deleted=%d created=%d for model_version=%s", deleted_count, len(fs_objs), model_version.id)
 
-            # 新しい変数セットを作成
-            logger.info(f"特徴量セットの作成を開始: モデル={model_kind.tag_name}, 月={target_month}")
-            feature_sets = []
-            try:
-                for variable in variables:
-                    feature_set = ForecastModelFeatureSet.objects.create(
-                        target_month=target_month,
-                        model_kind=model_kind,
-                        variable=variable
-                    )
-                    feature_sets.append(feature_set)
-                logger.info(f"特徴量セット作成完了: {len(feature_sets)}個の変数を登録")
-            except Exception as e:
-                logger.error(f"特徴量セット作成エラー: {str(e)}", exc_info=True)
-                raise
-            
             # モデル評価の作成
             model_evaluation = ForecastModelEvaluation.objects.create(
+                model_version=model_version,
                 multi_r=float(np.sqrt(model.rsquared)),
                 heavy_r2=float(model.rsquared),
                 adjusted_r2=float(model.rsquared_adj),
@@ -450,8 +435,8 @@ class ForecastOLSRunner:
                         
                         if not variables:
                             raise ValueError("特徴量セットが設定されていません")
-                            
-                        variable_names = [var.name for var in variables]
+
+                        variable_names = [getattr(v, "name", str(v)) for v in variables]
                         model_version = self.fit_and_persist(
                             model_name,
                             target_month,

@@ -459,8 +459,8 @@ class ForecastModelDataBuilder:
         
         print(f"INFO: {vegetable}の{target_month}月の価格データを{len(result_list)}件取得しました。")
         return result_list
-    
-    def build_forecast_dataset(self, model_name: str, target_month: int, year: int = None, variable_names: Optional[List[str]] = None) -> Dict:
+
+    def build_forecast_dataset(self, model_name: str, target_month: int, year: int = None, vals: List[str] = None) -> Dict:
         """
         予測用のデータセットを構築する（特徴量Xと目的変数Yの両方）。
         2021年から指定年までの複数年のデータを使用する。
@@ -469,10 +469,12 @@ class ForecastModelDataBuilder:
             model_name (str): モデル名（例: "キャベツ春まき"）
             target_month (int): 対象月（1〜12）
             year (int, optional): 対象年。指定しない場合は現在の年
+            vals (List[str]): 使用する変数名リスト
             
         Returns:
             Dict: 予測用データセット（X特徴量とY目的変数を含む）
         """
+        print("受け取っているvariable_names:", vals)
         print(f"DEBUG: build_forecast_dataset - model_name={model_name}, target_month={target_month}, year={year}")
         
         # モデル種類が存在するか確認
@@ -482,12 +484,12 @@ class ForecastModelDataBuilder:
             raise ValueError(f"モデル「{model_name}」は登録されていません。先にモデル種類を登録してください。")
 
         # 使用する変数リストの決定
-        variables = []
-        if variable_names:
+        if vals:
             # 明示的に変数名リストが渡された場合はそれを使う
-            variables = list(ForecastModelVariable.objects.filter(name__in=variable_names))
+            variables = ForecastModelVariable.objects.filter(pk__in=vals)
+            # variables_list = list(ForecastModelVariable.objects.filter(name__in=val_ids))
             if not variables:
-                raise ValueError(f"指定された変数が見つかりませんでした: {variable_names}")
+                raise ValueError(f"指定された変数が見つかりませんでした: {vals}")
         else:
             # 既存の特徴量セットから変数を取得
             feature_sets = ForecastModelFeatureSet.objects.filter(
@@ -499,7 +501,8 @@ class ForecastModelDataBuilder:
                 print(f"DEBUG: model_kind.id={model_kind.id}, tag_name={model_kind.tag_name}")
                 raise ValueError(f"モデル「{model_name}」（{target_month}月）の特徴量セットが未設定です。特徴量を設定してからモデルを実行してください。")
 
-            variables = [fs.variable for fs in feature_sets]
+            # FIXME: どうしたらいいかわからん
+            variables_prev = [fs.variable for fs in feature_sets]
         
         # 価格データ（目的変数Y）を取得 - 複数年分
         try:

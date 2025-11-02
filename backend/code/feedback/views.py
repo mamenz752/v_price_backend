@@ -324,21 +324,23 @@ def run_model(request, vegetable):
     if not variable_ids:
         messages.error(request, '説明変数を選択してください。')
         return redirect(request.META.get('HTTP_REFERER', '/'))
+    vals = list(variable_ids)
 
     try:
         # 選択された変数のリストを取得
-        variables = ForecastModelVariable.objects.filter(id__in=variable_ids)
-        if not variables.exists():
+        # TODO: ここ！！
+        # variables = ForecastModelVariable.objects.filter(pk__in=vals)
+        if not vals:
             messages.error(request, '選択された説明変数が見つかりません。')
             return redirect(request.META.get('HTTP_REFERER', '/?tab=model'))
-
-        # 変数名のリストを作成
-        variable_names = [var.name for var in variables]
 
         # モデル実行サービスを呼び出し
         from forecast.services import ForecastModelService
         tag_name = get_tag_name(vegetable)
-        result = ForecastModelService().run_model(tag_name, target_month, variable_names)
+        # imakoko
+        # FIXME: ForecastModelService()は使わなくても`forecast/service`ディレクトリで完結するはず！
+        # QuerySetが渡ってる
+        result = ForecastModelService().run_model(tag_name, target_month, vals)
         
         if result:
             messages.success(request, f'{vegetable}の{target_month}月モデルを実行しました。')

@@ -20,7 +20,8 @@ RUN python -m pip install --upgrade pip && \
 
 # 関数と設定を配置
 # COPY host.json .
-COPY . .
+COPY host.json .
+COPY TimerWriteBlob ./TimerWriteBlob
 
 # 既定のエントリポイントは base イメージ側で func host を起動
 # ローカルでは docker-compose で 7071 を開けておけばOK

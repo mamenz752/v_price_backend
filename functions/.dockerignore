@@ -1,0 +1,6 @@
+bin/
+obj/
+.vs/
+.git/
+_azurite/
+node_modules/

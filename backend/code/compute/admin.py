@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
 from django.template.response import TemplateResponse
-from django.urls import reverse
+from django.urls import reverse, path
 
 from .models import ComputeMarket, ComputeWeather
 from .service import (
@@ -16,12 +16,120 @@ class ComputeMarketAdmin(admin.ModelAdmin):
     list_display = ('id', 'vegetable', 'region', 'target_year', 'target_month', 'target_half', 'average_price', 'source_price', 'volume', 'trend')
     list_filter = ('vegetable', 'region', 'target_year', 'target_month', 'target_half')
     search_fields = ('vegetable__name', 'region__name')
+    
+    actions = ['compute_market_data', 'compute_all_data', 'reset_compute_data']
+    
+    def compute_market_data(self, request, queryset):
+        try:
+            result = aggregate_market_data()
+            messages.success(request, f'市場データの集計が完了しました！新規: {result.created}件, 更新: {result.updated}件')
+        except Exception as e:
+            messages.error(request, f'集計処理中にエラーが発生しました: {str(e)}')
+    compute_market_data.short_description = '価格データの集計'
+    
+    def compute_all_data(self, request, queryset):
+        try:
+            results = aggregate_all_data()
+            market_result = results["market"]
+            weather_result = results["weather"]
+            messages.success(request, 
+                f'全データの集計が完了しました！\n'
+                f'市場データ - 新規: {market_result.created}件, 更新: {market_result.updated}件\n'
+                f'気象データ - 新規: {weather_result.created}件, 更新: {weather_result.updated}件'
+            )
+        except Exception as e:
+            messages.error(request, f'集計処理中にエラーが発生しました: {str(e)}')
+    compute_all_data.short_description = '全データの集計'
+    
+    def reset_compute_data(self, request, queryset):
+        if request.method != 'POST':
+            if request.POST.get('post'):
+                try:
+                    deleted = reset_compute_data()
+                    messages.success(request, 
+                        f'集計データの削除が完了しました！\n'
+                        f'市場データ: {deleted["market_deleted"]}件削除\n'
+                        f'気象データ: {deleted["weather_deleted"]}件削除'
+                    )
+                except Exception as e:
+                    messages.error(request, f'削除処理中にエラーが発生しました: {str(e)}')
+            return None
+        
+        return TemplateResponse(request, 'admin/reset_compute_confirmation.html', {
+            'title': '集計データのリセット確認',
+            'queryset': queryset,
+            'opts': self.model._meta,
+        })
+    reset_compute_data.short_description = '集計データのリセット'
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('compute_market/', self.admin_site.admin_view(compute_market_view), name='compute_market'),
+            path('compute_all/', self.admin_site.admin_view(compute_all_view), name='compute_all'),
+            path('compute_reset/', self.admin_site.admin_view(compute_reset_view), name='compute_reset'),
+        ]
+        return my_urls + urls
 
 @admin.register(ComputeWeather)
 class ComputeWeatherAdmin(admin.ModelAdmin):
     list_display = ('id', 'region', 'target_year', 'target_month', 'target_half', 'mean_temp', 'max_temp', 'min_temp', 'sum_precipitation', 'sunshine_duration', 'ave_humidity')
     list_filter = ('region', 'target_year', 'target_month', 'target_half')
     search_fields = ('region__name',)
+    
+    actions = ['compute_weather_data', 'compute_all_data', 'reset_compute_data']
+    
+    def compute_weather_data(self, request, queryset):
+        try:
+            result = aggregate_weather_data()
+            messages.success(request, f'気象データの集計が完了しました！新規: {result.created}件, 更新: {result.updated}件')
+        except Exception as e:
+            messages.error(request, f'集計処理中にエラーが発生しました: {str(e)}')
+    compute_weather_data.short_description = '気象データの集計'
+    
+    def compute_all_data(self, request, queryset):
+        try:
+            results = aggregate_all_data()
+            market_result = results["market"]
+            weather_result = results["weather"]
+            messages.success(request, 
+                f'全データの集計が完了しました！\n'
+                f'市場データ - 新規: {market_result.created}件, 更新: {market_result.updated}件\n'
+                f'気象データ - 新規: {weather_result.created}件, 更新: {weather_result.updated}件'
+            )
+        except Exception as e:
+            messages.error(request, f'集計処理中にエラーが発生しました: {str(e)}')
+    compute_all_data.short_description = '全データの集計'
+    
+    def reset_compute_data(self, request, queryset):
+        if request.method != 'POST':
+            if request.POST.get('post'):
+                try:
+                    deleted = reset_compute_data()
+                    messages.success(request, 
+                        f'集計データの削除が完了しました！\n'
+                        f'市場データ: {deleted["market_deleted"]}件削除\n'
+                        f'気象データ: {deleted["weather_deleted"]}件削除'
+                    )
+                except Exception as e:
+                    messages.error(request, f'削除処理中にエラーが発生しました: {str(e)}')
+            return None
+        
+        return TemplateResponse(request, 'admin/reset_compute_confirmation.html', {
+            'title': '集計データのリセット確認',
+            'queryset': queryset,
+            'opts': self.model._meta,
+        })
+    reset_compute_data.short_description = '集計データのリセット'
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('compute_weather/', self.admin_site.admin_view(compute_weather_view), name='compute_weather'),
+            path('compute_all/', self.admin_site.admin_view(compute_all_view), name='compute_all'),
+            path('compute_reset/', self.admin_site.admin_view(compute_reset_view), name='compute_reset'),
+        ]
+        return my_urls + urls
 
 
 def _build_context(request, title: str, description: str, button_label: str):

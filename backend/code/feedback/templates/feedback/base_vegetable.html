@@ -1,0 +1,169 @@
+{% extends 'config/base_feedback.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <h2>{% block vegetable_name %}{% endblock %}</h2>
+
+    <!-- タブナビゲーション -->
+    <ul class="nav nav-tabs mb-4" id="vegetableTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link active" id="feedback-tab" data-bs-toggle="tab" href="#feedback-content" role="tab">
+                フィードバック
+            </a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link" id="model-tab" data-bs-toggle="tab" href="#model-content" role="tab">
+                モデル管理
+            </a>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="vegetableTabsContent">
+        <!-- フィードバックタブコンテンツ -->
+        <div class="tab-pane fade show active" id="feedback-content" role="tabpanel">
+            <!-- 月別タブ -->
+            <ul class="nav nav-pills mb-4">
+                {% for month in months %}
+                <li class="nav-item">
+                    <a class="nav-link {% if month == current_month %}active{% endif %}" 
+                       href="{% url request.resolver_match.view_name %}?month={{ month }}">
+                        {{ month }}月
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title h5 mb-0">予測精度指標</h3>
+                </div>
+                <div class="card-body">
+                    {% if metrics.r2 is not None %}
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            補正R2
+                            <span class="badge bg-primary rounded-pill">{{ metrics.r2|floatformat:3 }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            標準誤差
+                            <span class="badge bg-primary rounded-pill">{{ metrics.std_error|floatformat:3 }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            MAE
+                            <span class="badge bg-primary rounded-pill">{{ metrics.mae|floatformat:3 }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            RMSE
+                            <span class="badge bg-primary rounded-pill">{{ metrics.rmse|floatformat:3 }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            有意F
+                            <span class="badge bg-primary rounded-pill">{{ metrics.f_significance|floatformat:3 }}</span>
+                        </li>
+                    </ul>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle"></i> アクティブなモデルが存在しないため、メトリクスを表示できません。
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title h5 mb-0">モデル評価</h3>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-subtitle mb-2">{{ evaluation.status }}</h5>
+                    <p class="card-text">{{ evaluation.description }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title h5 mb-0">回帰分析結果</h3>
+        </div>
+        <div class="card-body">
+            {% if variables %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>説明変数</th>
+                            <th>係数</th>
+                            <th>t値</th>
+                            <th>p値</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for var in variables %}
+                        <tr>
+                            <td>{{ var.name }}</td>
+                            <td>{{ var.coefficient|floatformat:3 }}</td>
+                            <td>{{ var.t_value|floatformat:3 }}</td>
+                            <td>{{ var.p_value|floatformat:3 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle"></i> アクティブなモデルが存在しないため、変数情報を表示できません。
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title h5 mb-0">予測精度の推移</h3>
+        </div>
+        <div class="card-body">
+            <div id="accuracy_trend"></div>
+        </div>
+    </div>
+
+            {% block additional_content %}{% endblock %}
+        </div>
+
+        <!-- モデル管理タブコンテンツ -->
+        <div class="tab-pane fade" id="model-content" role="tabpanel">
+            {% include "feedback/model_management.html" %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+    // 予測精度の推移グラフを描画
+    document.addEventListener('DOMContentLoaded', function() {
+        let accuracyData = {{ accuracy_data|safe }}
+        Plotly.newPlot('accuracy_trend', accuracyData.data, accuracyData.layout);
+
+        // タブの切り替え処理
+        var triggerTabList = [].slice.call(document.querySelectorAll('#vegetableTabs a'));
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl);
+            triggerEl.addEventListener('click', function (event) {
+                event.preventDefault();
+                tabTrigger.show();
+            });
+        });
+
+        // URLにtab=modelがある場合、モデル管理タブを表示
+        if (window.location.search.includes('tab=model')) {
+            document.querySelector('#model-tab').click();
+        }
+    })
+</script>
+{% endblock %}

@@ -3,6 +3,9 @@ from . import views
 
 app_name = 'feedback'
 urlpatterns = [
+    # モデル管理関連のURL
+    path('model/run/<str:vegetable>/', views.run_model, name='run_model'),
+    path('model/run_multiple/<str:vegetable>/', views.run_multiple_models, name='run_multiple_models'),
     path('', views.IndexView.as_view(), name="index"),
     path('chinese_cabbage', views.ChineseCabbageView.as_view(), name="chinese_cabbage"),
     path('cabbage', views.CabbageView.as_view(), name="cabbage"),

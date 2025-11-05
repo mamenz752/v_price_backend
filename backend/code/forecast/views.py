@@ -10,6 +10,7 @@ from forecast.models import (
     ForecastModelEvaluation, ForecastModelVariable, ForecastModelFeatureSet
 )
 from .service.run_ols import ForecastOLSRunner, ForecastOLSConfig
+from .services import ModelVariableDisplayService
 # 遅延インポートのために、run_ols からのインポートは行わない
 
 def index(request):
@@ -42,6 +43,9 @@ def index(request):
         .order_by('model_kind__tag_name', 'target_month')
     
     # テンプレートに渡すコンテキスト
+    # 1から12までの月のリストを作成
+    months = list(range(1, 13))
+    
     context = {
         'model_kinds': model_kinds,
         'active_models': active_models,
@@ -50,6 +54,7 @@ def index(request):
         'model_coefficients': model_coefficients,
         'variables': variables,
         'feature_sets': feature_sets,
+        'months': months,  # 月のリストを追加
     }
     
     return render(request, 'forecast/index.html', context)
@@ -74,31 +79,55 @@ def run_model(request):
         messages.error(request, f'無効な対象月: {str(e)}')
         return redirect('forecast:index')
     
+    import logging
+    logger = logging.getLogger(__name__)
+    
     # モデルの実行
     try:
         # モデル種類を取得
+        logger.info(f"モデル種類の取得: {model_name}")
         model_kind = ForecastModelKind.objects.get(tag_name=model_name)
+        logger.info(f"モデル種類を取得しました: id={model_kind.id}")
+
+        # 変数の取得
+        logger.info(f"変数の取得: variable_ids={variable_ids}")
+        variables = ForecastModelVariable.objects.filter(id__in=variable_ids)
+        if not variables:
+            raise ValueError('選択された変数が見つかりません')
+        
+        variable_names = [var.name for var in variables]
+        logger.info(f"変数を取得しました: names={variable_names}")
         
         # 既存の特徴量セットを削除
-        ForecastModelFeatureSet.objects.filter(
+        logger.info(f"既存の特徴量セットを削除: model={model_name}, month={target_month}")
+        deleted = ForecastModelFeatureSet.objects.filter(
             model_kind=model_kind,
             target_month=target_month
         ).delete()
+        logger.info(f"特徴量セット削除完了: {deleted}")
         
         # 新しい特徴量セットを作成
-        for variable_id in variable_ids:
-            variable = ForecastModelVariable.objects.get(id=variable_id)
-            ForecastModelFeatureSet.objects.create(
+        logger.info(f"新しい特徴量セットを作成: {len(variables)}個の変数")
+        for variable in variables:
+            feature_set = ForecastModelFeatureSet.objects.create(
                 target_month=target_month,
                 model_kind=model_kind,
                 variable=variable
             )
+            logger.info(f"特徴量セット作成: variable={variable.name}, id={feature_set.id}")
         
+        # モデル実行の準備
+        logger.info("モデル実行の準備")
         config = ForecastOLSConfig(region_name='広島', deactivate_previous=True)
         runner = ForecastOLSRunner(config=config)
-        
+
         # モデル実行
-        model_version = runner.fit_and_persist(model_name, target_month)
+        logger.info(f"モデル実行開始: model={model_name}, month={target_month}, variables={variable_names}")
+        model_version = runner.fit_and_persist(
+            model_name, 
+            target_month,
+            variable_names
+        )
         
         if model_version:
             messages.success(request, f'モデル「{model_name}」（{target_month}月）を正常に実行しました')

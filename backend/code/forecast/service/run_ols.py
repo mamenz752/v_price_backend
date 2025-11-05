@@ -4,6 +4,7 @@ from typing import Optional, Dict, List
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
+import logging
 from datetime import datetime
 from django.db import transaction, IntegrityError
 from forecast.models import (
@@ -32,7 +33,7 @@ class ForecastOLSRunner:
         self.data_builder = data_builder or ForecastModelDataBuilder(region_name=config.region_name if config else '広島')
         self.cfg = config or ForecastOLSConfig()
 
-    def prepare_regression_data(self, model_name: str, target_month: int, year: int = None) -> tuple:
+    def prepare_regression_data(self, model_name: str, target_month: int, vals: List[int]) -> tuple:
         """
         回帰分析用のデータを準備する
         複数年（2021-2025年）のデータを扱うように更新
@@ -40,8 +41,8 @@ class ForecastOLSRunner:
         Args:
             model_name (str): モデル名（例: "キャベツ春まき"）
             target_month (int): 対象月（1〜12）
-            year (int, optional): 対象年。指定しない場合は現在の年
-            
+            variables (List[int]): 使用する変数のIDリスト
+
         Returns:
             tuple: (X, y, variable_list)
                 X: 特徴量行列
@@ -49,19 +50,26 @@ class ForecastOLSRunner:
                 variable_list: 変数リスト
         """
         # ForecastModelDataBuilderからデータセットを取得
-        forecast_dataset = self.data_builder.build_forecast_dataset(model_name, target_month, year)
-        
+        # variable_names が渡されていればそれをビルダーに伝えて特徴量セット未登録時も動作するようにする
+
+        vals_list = list(vals)
+        forecast_dataset = self.data_builder.build_forecast_dataset(model_name, target_month, vals=vals_list)
+
         if not forecast_dataset or forecast_dataset['X'].empty or not forecast_dataset['Y']:
             raise ValueError(f"モデル '{model_name}' の {target_month} 月のデータセットが見つかりませんでした。")
         
         # 特徴量データフレームを準備
         X_df = forecast_dataset['X']
         
-        print(f"DEBUG: prepare_regression_data - X_df shape: {X_df.shape}")
+        logger = logging.getLogger(__name__)
+        logger.info(f"特徴量データフレーム準備: X_df shape={X_df.shape}")
+        logger.debug(f"X_df columns: {X_df.columns.tolist()}")
+        logger.debug(f"X_df sample:\n{X_df.head().to_string()}")
         
         try:
             # 複数年のデータを処理するために、price_yearとprice_halfをインデックスとしたピボットテーブルを作成
             # 各年のデータが1行となるように変換
+            logger.info("ピボットテーブルの作成を開始")
             X = X_df.pivot_table(
                 index=['price_year', 'price_half'],
                 columns=['variable', 'previous_term'],
@@ -73,6 +81,7 @@ class ForecastOLSRunner:
             X.columns = [f"{col[0]}_{col[1]}" for col in X.columns]
             
             print(f"INFO: ピボットテーブル作成成功 - 行数: {X.shape[0]}, 列数: {X.shape[1]}")
+            print(f"DEBUG: ピボットテーブルのサンプルデータ:\n{X.columns.tolist()}            docker compose exec web tail -n 200 /code/logs/django.log")
             
         except Exception as e:
             # デバッグ情報を出力
@@ -129,56 +138,82 @@ class ForecastOLSRunner:
         common_index = X.index.intersection(y.index)
         if len(common_index) < len(X):
             print(f"警告: インデックスの不一致 - 共通: {len(common_index)}, X: {len(X)}, y: {len(y)}")
-        
+
         X = X.loc[common_index]
         y = y.loc[common_index]
-        
+
+        # 欠損値を含む行を除外
+        mask = X.notna().all(axis=1)
+        X = X[mask]
+        y = y[mask]
+
+        # インデックスの最終確認
+        n = len(y)
+        p = X.shape[1]
+
+        print(f"確認：説明変数自動削除前：{X.columns.tolist()}")
+
+        # 観測数が不足している場合、自動的に変数を削減して対応を試みる
+        if n < (p + getattr(self.cfg, 'min_obs_margin', 1) if hasattr(self, 'cfg') else p + 1):
+            # 利用可能な最大変数数
+            min_obs_margin = getattr(self.cfg, 'min_obs_margin', 1) if hasattr(self, 'cfg') else 1
+            max_allowed_p = max(n - min_obs_margin, 0)
+
+            if max_allowed_p <= 0:
+                raise ValueError(f"観測数が極端に不足しています: n={n}, 変数数(p)={p}. 変数を減らすかデータを増やしてください。")
+
+            # 分散の小さい変数から削除する（単純なヒューリスティック）
+            variances = X.var(axis=0).fillna(0)
+            keep_cols = variances.sort_values(ascending=False).head(max_allowed_p).index.tolist()
+            dropped = [c for c in X.columns if c not in keep_cols]
+
+            print(f"警告: 観測数が不足しているため {len(dropped)} 個の変数を自動削除します: {dropped}")
+
+            # 列を絞る
+            X = X[keep_cols]
+            p = X.shape[1]
+
         # 変数リストを作成
         variable_list = []
         for col in X.columns:
             try:
-                # '_'で分割できるか確認
                 parts = col.split('_')
                 if len(parts) == 2:
                     var_name, prev_term = parts
                 else:
-                    # 複数の'_'がある場合、最後の部分をprev_termとして扱う
                     var_name = '_'.join(parts[:-1])
                     prev_term = parts[-1]
-                    
+
                 variable_list.append({
                     'name': var_name,
                     'previous_term': int(prev_term)
                 })
             except Exception as e:
                 print(f"変数リスト作成エラー（{col}）: {str(e)}")
-                # エラーが発生した場合はスキップ
                 continue
-        
-        # 欠損値を含む行を除外
-        mask = X.notna().all(axis=1)
-        X = X[mask]
-        y = y[mask]
-        
-        print(f"最終データセット - X: {X.shape}, y: {len(y)}")
-        
+
+        print(f"最終データセット - X: {X.shape}, y: {len(y)}, variables: {variable_list}")
+
         return X, y, variable_list
 
-    def fit_and_persist(self, model_name: str, target_month: int, year: int = None) -> Optional[ForecastModelVersion]:
+    def fit_and_persist(self, model_name: str, target_month: int, vals: List[int]) -> Optional[ForecastModelVersion]:
         """
         モデルの学習と結果の永続化を行う
         
         Args:
             model_name (str): モデル名（例: "キャベツ春まき"）
             target_month (int): 対象月（1〜12）
-            year (int, optional): 対象年。指定しない場合は現在の年
+            vals (List[int]): 使用する変数のIDリスト
             
         Returns:
             Optional[ForecastModelVersion]: 作成されたモデルバージョン
         """
+        logger = logging.getLogger(__name__)
+        logger.info(f"fit_and_persist開始: モデル={model_name}, 月={target_month}, 変数={vals}")
+
         # 年が指定されていない場合は現在の年を使用
-        if year is None:
-            year = datetime.now().year
+        # if year is None:
+        #     year = datetime.now().year
             
         # モデル種類を取得
         model_kind = self.data_builder.get_model_kind_by_name(model_name)
@@ -186,15 +221,24 @@ class ForecastOLSRunner:
             raise ValueError(f"モデル種類 '{model_name}' は見つかりませんでした。")
         
         # データの準備
+        logger.info(f"重回帰分析開始: モデル={model_name}, 月={target_month}, 変数={vals}")
+        # 変数リストを作成
+        # vals_ids = [var.id for var in variables]
+
         try:
-            X, y, variable_list = self.prepare_regression_data(model_name, target_month, year)
+            # prepare_regression_data のシグネチャを変えたため、キーワードで渡す
+            # FIXME: ここがわからん
+            X, y, variable_list = self.prepare_regression_data(model_name, target_month, vals=vals)
+            logger.info(f"データ準備完了: X shape={X.shape}, y length={len(y)}")
+            logger.info(f"データ準備完了: X shape={X.shape}, y length={len(y)}")
         except Exception as e:
-            print(f"データ準備エラー: {str(e)}")
-            return None
+            logger.error(f"データ準備エラー: {str(e)}", exc_info=True)
+            raise ValueError(f"データの準備中にエラーが発生しました: {str(e)}")
             
         # 行列のサイズをチェック
         p = X.shape[1]
         n = len(y)
+        logger.info(f"行列サイズ: 観測数(n)={n}, 変数数(p)={p}")
         if n < (p + self.cfg.min_obs_margin):
             raise ValueError(f"観測数が不足しています: n={n}, p={p}, 必要数 >= {p + self.cfg.min_obs_margin}")
         
@@ -205,7 +249,7 @@ class ForecastOLSRunner:
         # 予測・残差・指標
         y_pred = model.predict(Xc)
         resid = y - y_pred
-        rmse = float(np.sqrt(((y - y_pred) ** 2).mean()))
+        rmse = float(np.sqrt(((resid) ** 2).mean()))
         
         # 回帰統計量
         n_obs = model.nobs
@@ -220,24 +264,55 @@ class ForecastOLSRunner:
         mse = ess / df_resid  # 残差分散
         
         # DB保存（原子性）
+        model_version = None  # モデルバージョン変数をトランザクション外で初期化
+        logger.info(f"データベース保存開始: モデル={model_name}")
+        
         with transaction.atomic():
             # 以前のアクティブなモデルを非アクティブ化
-            if self.cfg.deactivate_previous:
-                ForecastModelVersion.objects.filter(
+            try:
+                if self.cfg.deactivate_previous:
+                    deact_qs = ForecastModelVersion.objects.filter(
+                        model_kind=model_kind,
+                        target_month=target_month,
+                        is_active=True
+                    )
+                    deact_count = deact_qs.update(is_active=False)
+                    logger.info(f"非アクティブ化されたモデル数: {deact_count}")
+            except Exception as e:
+                logger.error(f"既存モデルの非アクティブ化でエラーが発生: {str(e)}")
+                raise
+            
+            # モデルバージョンの作成
+            logger.info(f"モデルバージョンの作成を開始: モデル={model_kind.tag_name}, 月={target_month}")
+            try:
+                model_version = ForecastModelVersion.objects.create(
+                    target_month=target_month,
+                    is_active=True,
+                    model_kind=model_kind
+                )
+                logger.info(f"モデルバージョン作成完了: ID={model_version.id}")
+            except Exception as e:
+                logger.error(f"モデルバージョン作成エラー: {str(e)}", exc_info=True)
+                raise
+
+            # 既存の特徴量セットを削除
+            deleted_count, _ = ForecastModelFeatureSet.objects.filter(model_kind=model_kind, target_month=target_month).delete()
+            fs_objs = []
+            variables = ForecastModelVariable.objects.filter(pk__in=vals)
+            for var in variables:
+                fs = ForecastModelFeatureSet(
                     model_kind=model_kind,
                     target_month=target_month,
-                    is_active=True
-                ).update(is_active=False)
-                
-            # モデルバージョンの作成
-            model_version = ForecastModelVersion.objects.create(
-                target_month=target_month,
-                is_active=True,
-                model_kind=model_kind
-            )
-            
+                    variable=var  # var は ForecastModelVariable オブジェクトの想定
+                )
+                fs_objs.append(fs)
+            if fs_objs:
+                ForecastModelFeatureSet.objects.bulk_create(fs_objs)
+            logger.info("Recreated ForecastModelFeatureSet: deleted=%d created=%d for model_version=%s", deleted_count, len(fs_objs), model_version.id)
+
             # モデル評価の作成
             model_evaluation = ForecastModelEvaluation.objects.create(
+                model_version=model_version,
                 multi_r=float(np.sqrt(model.rsquared)),
                 heavy_r2=float(model.rsquared),
                 adjusted_r2=float(model.rsquared_adj),
@@ -250,6 +325,28 @@ class ForecastOLSRunner:
                 res_variance=float(mse),
                 total_variation=float(tss)
             )
+            
+            # モデル作成後、最新の予測も実行
+            from observe.services import ObserveService, ObserveServiceConfig
+            observe_service = ObserveService(ObserveServiceConfig(region_name=self.cfg.region_name))
+            current_year = datetime.now().year
+
+            # TODO: 予測実行の時期をうまいこと指定する
+            try:
+                observe_service.observe_latest_model(
+                    model_kind.id,
+                    current_year,
+                    target_month,
+                    "前半"
+                )
+                observe_service.observe_latest_model(
+                    model_kind.id,
+                    current_year,
+                    target_month,
+                    "後半"
+                )
+            except Exception as e:
+                print(f"予測の実行中にエラーが発生しました: {str(e)}")
             
             # 係数の保存
             se = model.bse
@@ -278,7 +375,7 @@ class ForecastOLSRunner:
                 # 定数項の場合
                 if name == 'const':
                     variable = const_var
-                    is_segment = False
+                    is_segment = True  # 定数項の場合はis_segmentをTrueに設定
                 else:
                     # 通常の変数の場合
                     if name not in variable_dict:
@@ -288,6 +385,8 @@ class ForecastOLSRunner:
                     is_segment = False  # 必要に応じて変更
                 
                 ForecastModelCoef.objects.create(
+                    # FIXME: model_version を渡すのがバグ怪しい
+                    model_version=model_version,
                     is_segment=is_segment,
                     variable=variable,
                     coef=float(model.params[name]),
@@ -310,6 +409,7 @@ class ForecastOLSRunner:
         Returns:
             Dict: モデル名と対象月をキーとした結果辞書
         """
+        logger = logging.getLogger(__name__)
         results = {}
         
         for model_name in model_names:
@@ -317,20 +417,64 @@ class ForecastOLSRunner:
                 results[model_name] = {}
                 
             for target_month in target_months:
+                logger.info(f"モデル実行開始: モデル={model_name}, 月={target_month}")
                 try:
-                    model_version = self.fit_and_persist(model_name, target_month, year)
-                    results[model_name][target_month] = {
-                        'success': model_version is not None,
-                        'model_version_id': model_version.id if model_version else None,
-                        'error': None
-                    }
+                    # モデル種類の存在確認
+                    try:
+                        model_kind = self.data_builder.get_model_kind_by_name(model_name)
+                        if not model_kind:
+                            raise ValueError(f"モデル種類 '{model_name}' が見つかりません")
+                    except Exception as e:
+                        logger.error(f"モデル種類の取得エラー: {str(e)}")
+                        results[model_name][target_month] = {
+                            'success': False,
+                            'model_version_id': None,
+                            'error': f"モデル種類エラー: {str(e)}"
+                        }
+                        continue
+
+                    # 変数を取得してから実行
+                    try:
+                        # デフォルトの変数セットを取得
+                        variables = ForecastModelVariable.objects.filter(
+                            forecastmodelfeatureset__model_kind=model_kind,
+                            forecastmodelfeatureset__target_month=target_month
+                        ).distinct()
+                        
+                        if not variables:
+                            raise ValueError("特徴量セットが設定されていません")
+
+                        variable_names = [getattr(v, "name", str(v)) for v in variables]
+                        model_version = self.fit_and_persist(
+                            model_name,
+                            target_month,
+                            variable_names,
+                            year
+                        )
+                        
+                        results[model_name][target_month] = {
+                            'success': model_version is not None,
+                            'model_version_id': model_version.id if model_version else None,
+                            'error': None
+                        }
+                        
+                        logger.info(f"モデル実行成功: モデル={model_name}, 月={target_month}, ID={model_version.id if model_version else 'None'}")
+                        
+                    except Exception as e:
+                        logger.error(f"モデル実行エラー: モデル={model_name}, 月={target_month}, エラー={str(e)}", exc_info=True)
+                        results[model_name][target_month] = {
+                            'success': False,
+                            'model_version_id': None,
+                            'error': str(e)
+                        }
+                        
                 except Exception as e:
+                    logger.error(f"予期せぬエラー: モデル={model_name}, 月={target_month}, エラー={str(e)}", exc_info=True)
                     results[model_name][target_month] = {
                         'success': False,
                         'model_version_id': None,
-                        'error': str(e)
+                        'error': f"予期せぬエラー: {str(e)}"
                     }
-                    print(f"エラー（{model_name}, 月={target_month}）: {str(e)}")
         
         return results
 

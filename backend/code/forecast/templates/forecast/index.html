@@ -1,5 +1,6 @@
 {% extends "config/base.html" %}
 {% load static %}
+{% load forecast_extras %}
 
 {% block title %}予測モデル管理{% endblock %}
 
@@ -93,7 +94,7 @@
                     <label for="target_month" class="form-label">対象月</label>
                     <select name="target_month" id="target_month" class="form-select" required>
                       <option value="">月を選択してください</option>
-                      {% for month in "123456789101112"|make_list %}
+                      {% for month in months %}
                         <option value="{{ month }}">{{ month }}月</option>
                       {% endfor %}
                     </select>
@@ -106,8 +107,8 @@
                       {% for var in variables %}
                         <div class="form-check">
                           <input class="form-check-input" type="checkbox" name="variables" value="{{ var.id }}" id="var_{{ var.id }}">
-                          <label class="form-check-label" for="var_{{ var.id }}">
-                            {{ var.name }} ({{ var.previous_term }}期間前)
+                            <label class="form-check-label" for="var_{{ var.id }}">
+                            {{ var.name|variable_display_name }} ({{ var.previous_term|term_display }})
                           </label>
                         </div>
                       {% endfor %}
@@ -141,7 +142,7 @@
                   <div class="col-md-6">
                     <label class="form-label">対象月（複数選択可）</label>
                     <div style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px;">
-                      {% for month in "123456789101112"|make_list %}
+                      {% for month in months %}
                         <div class="form-check">
                           <input class="form-check-input" type="checkbox" name="target_months" value="{{ month }}" id="month_{{ month }}">
                           <label class="form-check-label" for="month_{{ month }}">
@@ -310,8 +311,8 @@
             <tbody>
               {% for coef in model_coefficients %}
                 <tr>
-                  <td>{{ coef.variable.name }}</td>
-                  <td>{% if coef.variable.previous_term > 0 %}{{ coef.variable.previous_term }} 期間前{% else %}-{% endif %}</td>
+                  <td>{{ coef.variable.name|variable_display_name }}</td>
+                  <td>{{ coef.variable.previous_term|term_display }}</td>
                   <td>{{ coef.coef|floatformat:6 }}</td>
                   <td>{{ coef.value_t|floatformat:4 }}</td>
                   <td>{{ coef.sign_p|floatformat:6 }}</td>
@@ -346,8 +347,8 @@
                 <tr>
                   <td>{{ feature.model_kind.tag_name }}</td>
                   <td>{{ feature.target_month }}月</td>
-                  <td>{{ feature.variable.name }}</td>
-                  <td>{{ feature.variable.previous_term }}期間前</td>
+                  <td>{{ feature.variable.name|variable_display_name }}</td>
+                  <td>{{ feature.variable.previous_term|term_display }}</td>
                   <td>{{ feature.created_at|date:"Y/m/d H:i" }}</td>
                 </tr>
               {% empty %}

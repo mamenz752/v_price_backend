@@ -18,6 +18,8 @@ services:
     ports: ["10000:10000", "10001:10001", "10002:10002"]
     volumes:
       - ./data:/azdata
+    environment:
+      AZURITE_ACCOUNTS: ${AZURE_ACCOUNTS}
 
   web:
     build: ./backend
@@ -79,4 +81,7 @@ services:
       FUNCTIONS_WORKER_RUNTIME: dotnet-isolated
       AZURE_FUNCTIONS_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:80
+      PREFIX: ${PREFIX}
     ports: ["7071:80"]
+    volumes:
+      - ./data:/home/site/wwwroot/data

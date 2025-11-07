@@ -290,6 +290,24 @@ class ForecastOLSRunner:
                     is_active=True,
                     model_kind=model_kind
                 )
+
+                # 新規: モデル作成直後に予測を実行
+                from observe.services import ObserveService, ObserveServiceConfig
+                observe_service = ObserveService(ObserveServiceConfig(region_name=self.cfg.region_name))
+                
+                # 現在の年と上半期/下半期を取得
+                current_year = datetime.now().year
+                current_month = datetime.now().month
+                current_half = '前半' if current_month <= 6 else '後半'
+                
+                # 予測実行
+                observe_service.predict_for_model_version(
+                    model_version=model_version,
+                    year=current_year,
+                    month=target_month,
+                    half=current_half
+                )
+
                 logger.info(f"モデルバージョン作成完了: ID={model_version.id}")
             except Exception as e:
                 logger.error(f"モデルバージョン作成エラー: {str(e)}", exc_info=True)

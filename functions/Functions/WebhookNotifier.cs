@@ -1,6 +1,7 @@
 using System;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -8,58 +9,203 @@ namespace Functions
 {
     public class WebhookNotifier
     {
-        private readonly ILogger<WebhookNotifier> _log;
+        private readonly ILogger _log;
         private readonly HttpClient _http;
 
-        public WebhookNotifier(HttpClient http, ILogger<WebhookNotifier> log)
+        public WebhookNotifier(HttpClient http, ILogger log)
         {
             _http = http;
             _log = log;
-            _http.Timeout = TimeSpan.FromSeconds(10);
         }
 
-        public async Task NotifyDailyPriceUpdateAsync(string webhookUrl, string message)
+        public async Task NotifyDailyPriceUpdateAsync(CancellationToken cancellationToken = default)
         {
+            var baseUrl = Environment.GetEnvironmentVariable("WEBHOOK_URL");
+            var token = Environment.GetEnvironmentVariable("WEBHOOK_TOKEN");
+
+            string url = $"{baseUrl}/price/daily";
+
+            var jst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
+            var nowJst = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, jst);
+
+            if (string.IsNullOrEmpty(token))
+            {
+                _log.LogWarning("Webhook token for daily price update is not set.");
+                return;
+            }
+
+            var payload = new
+            {
+                eventType = "daily.price.update",
+                createdAt = nowJst.ToString("yyyy-MM-ddTHH:mm:sszzz")
+            };
+
+            if (payload == null)
+            {
+                _log.LogError("Webhook payload cannot be null");
+                return;
+            }
+
+            using var req = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(payload),
+                    System.Text.Encoding.UTF8,
+                    "application/json"
+                )
+            };
+
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(10));
+
+            if (!string.IsNullOrWhiteSpace(token))
+                req.Headers.Add("X-Webhook-Token", token);
+
             try
             {
-                var payload = new { text = message };
-                var response = await _http.PostAsJsonAsync(webhookUrl, payload);
-                response.EnsureSuccessStatusCode();
-                _log.LogInformation("Webhook notification sent successfully.");
+                _log.LogDebug("Sending webhook request to {Url} with payload: {Payload}", url, JsonSerializer.Serialize(payload));
+                var res = await _http.SendAsync(req, cts.Token);
+                if (!res.IsSuccessStatusCode)
+                {
+                    var body = await res.Content.ReadAsStringAsync();
+                    _log.LogWarning("Webhook failed: {Status} {Body}", res.StatusCode, body);
+                }
+                else
+                {
+                    _log.LogInformation("Webhook sent to {Url} about daily price update", url);
+                }
             }
             catch (Exception ex)
             {
-                _log.LogError(ex, "Failed to send webhook notification.");
+                _log.LogError(ex, "Error sending webhook to {Url}", url);
             }
         }
 
-        public async Task NotifyDeadlineWeatherUpdateAsync(string webhookUrl, string message)
+        public async Task NotifyDeadlineWeatherUpdateAsync(CancellationToken cancellationToken = default)
         {
+            var baseUrl = Environment.GetEnvironmentVariable("WEBHOOK_URL");
+            var token = Environment.GetEnvironmentVariable("WEBHOOK_TOKEN");
+
+            string url = $"{baseUrl}/price/deadline";
+
+            var jst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
+            var nowJst = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, jst);
+
+            if (string.IsNullOrEmpty(token))
+            {
+                _log.LogWarning("Webhook token for daily price update is not set.");
+                return;
+            }
+
+            var payload = new
+            {
+                eventType = "deadline.weather.update",
+                createdAt = nowJst.ToString("yyyy-MM-ddTHH:mm:sszzz")
+            };
+
+
+            if (payload == null)
+            {
+                _log.LogError("Webhook payload cannot be null");
+                return;
+            }
+
+             using var req = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(payload),
+                    System.Text.Encoding.UTF8,
+                    "application/json"
+                )
+            };
+
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(10));
+
+            if (!string.IsNullOrWhiteSpace(token))
+                req.Headers.Add("X-Webhook-Token", token);
+
             try
             {
-                var payload = new { text = message };
-                var response = await _http.PostAsJsonAsync(webhookUrl, payload);
-                response.EnsureSuccessStatusCode();
-                _log.LogInformation("Webhook notification sent successfully.");
+                _log.LogDebug("Sending webhook request to {Url} with payload: {Payload}", url, JsonSerializer.Serialize(payload));
+                var res = await _http.SendAsync(req, cts.Token);
+                if (!res.IsSuccessStatusCode)
+                {
+                    var body = await res.Content.ReadAsStringAsync();
+                    _log.LogWarning("Webhook failed: {Status} {Body}", res.StatusCode, body);
+                }
+                else
+                {
+                    _log.LogInformation("Webhook sent to {Url} about deadline weather update", url);
+                }
             }
             catch (Exception ex)
             {
-                _log.LogError(ex, "Failed to send webhook notification.");
+                _log.LogError(ex, "Error sending webhook to {Url}", url);
             }
         }
         
-        public async Task NotifyDeadlinePriceUpdateAsync(string webhookUrl, string message)
+        public async Task NotifyDeadlinePriceUpdateAsync(CancellationToken cancellationToken = default)
         {
+            var baseUrl = Environment.GetEnvironmentVariable("WEBHOOK_URL");
+            var token = Environment.GetEnvironmentVariable("WEBHOOK_TOKEN");
+
+            var url = $"{baseUrl}/price/deadline";
+
+            var jst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
+            var nowJst = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, jst);
+
+            if (string.IsNullOrEmpty(token))
+            {
+                _log.LogWarning("Webhook token for daily price update is not set.");
+                return;
+            }
+
+            var payload = new
+            {
+                eventType = "deadline.price.update",
+                createdAt = nowJst.ToString("yyyy-MM-ddTHH:mm:sszzz")
+            };
+
+            if (payload == null)
+            {
+                _log.LogError("Webhook payload cannot be null");
+                return;
+            }
+
+
+            using var req = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(payload), 
+                    System.Text.Encoding.UTF8, 
+                    "application/json"
+                )
+            };
+
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(10));
+
+            if (!string.IsNullOrWhiteSpace(token))
+                req.Headers.Add("X-Webhook-Token", token);
+
             try
             {
-                var payload = new { text = message };
-                var response = await _http.PostAsJsonAsync(webhookUrl, payload);
-                response.EnsureSuccessStatusCode();
-                _log.LogInformation("Webhook notification sent successfully.");
+                _log.LogDebug("Sending webhook request to {Url} with payload: {Payload}", url, JsonSerializer.Serialize(payload));
+                var res = await _http.SendAsync(req, cts.Token);
+                if (!res.IsSuccessStatusCode)
+                {
+                    var body = await res.Content.ReadAsStringAsync();
+                    _log.LogWarning("Webhook failed: {Status} {Body}", res.StatusCode, body);
+                }
+                else
+                {
+                    _log.LogInformation("Webhook sent to {Url} about deadline price update", url);
+                }
             }
             catch (Exception ex)
             {
-                _log.LogError(ex, "Failed to send webhook notification.");
+                _log.LogError(ex, "Error sending webhook to {Url}", url);
             }
         }
     }

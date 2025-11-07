@@ -50,6 +50,17 @@ namespace Functions
             await BlobLogWriter.WriteTextAsync(connStr, container, blobPath, text);
 
             _log.LogInformation("PriceCsvTimer: TXT file written to {BlobPath}", blobPath);
+
+            var notifier = new WebhookNotifier(_http, _log);
+            await notifier.NotifyDailyPriceUpdateAsync();
+
+            _log.LogInformation("PriceTxtTimer: Daily price update webhook notified.");
+
+            if (nowJst.Day >= 15)
+            {
+                await notifier.NotifyDeadlinePriceUpdateAsync();
+                _log.LogInformation("PriceTxtTimer: Deadline price update webhook notified.");
+            }
         }
     }
 }

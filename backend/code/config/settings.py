@@ -56,6 +56,8 @@ AZURE_SSL = False  # Azuriteはhttpで十分（httpsにすると繋がらない�
 AZURE_URL_EXPIRATION_SECS = 3600  # 署名URL有効時間（必要に応じて）
 AZURE_OVERWRITE_FILES = False
 
+WEBHOOK_TOKEN = os.getenv("WEBHOOK_TOKEN", "testtoken")
+
 
 ALLOWED_HOSTS = ["*"]
 

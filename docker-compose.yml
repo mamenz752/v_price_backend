@@ -47,6 +47,7 @@ services:
       DJANGO_LOG_LEVEL: INFO
       LOGGING_LEVEL: INFO
       SHARED_DATA_DIR: /shared
+      WEBHOOK_TOKEN: ${WEBHOOK_TOKEN}
     ports: ["8000:8000"]
     volumes:
       - ./backend/code:/code
@@ -84,6 +85,8 @@ services:
       ASPNETCORE_URLS: http://+:80
       PREFIX: ${PREFIX}
       SHARED_DATA_DIR: /shared
+      WEBHOOK_URL: ${WEBHOOK_URL}
+      WEBHOOK_TOKEN: ${WEBHOOK_TOKEN}
     ports: ["7071:80"]
     volumes:
       - ./data:/shared

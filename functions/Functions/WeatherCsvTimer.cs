@@ -60,6 +60,11 @@ namespace Functions
             await BlobLogWriter.WriteTextAsync(connStr, container, blobPath, sb.ToString());
 
             _log.LogInformation("WeatherCsvTimer: CSV file written to {BlobPath}", blobPath);
+
+            var notifier = new WebhookNotifier(_http, _log);
+            await notifier.NotifyDeadlineWeatherUpdateAsync();
+
+            _log.LogInformation("WeatherCsvTimer: Deadline weather update webhook notified.");
         }
     }
 }

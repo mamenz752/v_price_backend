@@ -109,10 +109,22 @@ class ObserveService:
         #     ).values_list('id', flat=True)
         # ).select_related('variable')
 
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("predict_for_model_version: model_version id=%s, target_month=%s", getattr(model_version, 'id', None), getattr(model_version, 'target_month', None))
+
         # FIXME:: なぜか予測値が増えて一定の結果が出ないので直す
+        feature_sets = ForecastModelFeatureSet.objects.filter(
+            model_kind=model_version.model_kind,
+            target_month=model_version.target_month
+        ).select_related('variable')
+
+        variable_ids = feature_sets.values_list('variable_id', flat=True)
+
         coefs = ForecastModelCoef.objects.filter(
             model_version=model_version,
-            model_version__is_active=True
+            model_version__is_active=True,
+            variable_id__in=variable_ids
         ).select_related('variable')
 
         import logging
@@ -120,17 +132,19 @@ class ObserveService:
         if not coefs.exists():
             logger.info("predict_for_model_version: no coefficients found for model_version id=%s, skipping prediction", getattr(model_version, 'id', None))
             return None
+        
+        coef_dict = {(coef.variable.name, coef.variable.previous_term): coef 
+                 for coef in coefs}
 
-        max_coef_term = max(coef.variable.previous_term for coef in coefs)
-        print(f"使用する最大の係数期間: {max_coef_term}")
+        max_coef_term = max(coef.variable.previous_term for coef in coefs)        
+        logger(f"使用する最大の係数期間: {max_coef_term}")
 
         # 予測対象期間のデータを取得
         periods = self._get_target_period(year, month, half, max_coef_term)
-        # TODO: ここからコードリーディング
         weather_data = self._get_weather_data(periods)
         # market_data = self._get_market_data(periods, model_version.model_kind.vegetable.id)
 
-        print(f"気象データ: {weather_data}")
+        logger.info(f"気象データ: {weather_data}")
 
         # 予測値を計算
         prediction = 0.0
@@ -142,33 +156,50 @@ class ObserveService:
             target_month=model_version.target_month
         ).values_list('variable__name', 'variable__previous_term'))
 
-        for coef in coefs:
-            if coef.variable.name == 'const':
+        for (var_name, prev_term), coef in coef_dict.items():
+            if var_name == 'const':
                 const_value = coef.coef
                 continue
 
-            # 変数の時期を特定
-            term = coef.variable.previous_term
-            if term >= len(periods):
+            if prev_term >= len(periods):
                 continue
 
-            target_period = periods[term]
+            target_period = periods[prev_term]
             period_key = f"{target_period['year']}_{target_period['month']}_{target_period['half']}"
-            print(f"期間キー: {period_key}")
             period_data = weather_data.get(period_key, {})
-            print("期間データ:", period_data)
 
-            # 変数の値を取得（モデルで定義された変数かつ previous_term が一致する場合のみ）
-            var_value = None
-            var_key = (coef.variable.name, coef.variable.previous_term)
-            if var_key in feature_vars:
-                # period_data は該当期間の weather データ辞書なので、variable 名で存在を確認
-                if coef.variable.name in period_data:
-                    var_value = period_data.get(coef.variable.name)
-
+            var_value = period_data.get(var_name)
             if var_value is not None:
-                print(f"変数 {coef.variable.name} (期間: {term}) の値: {var_value} * 係数: {coef.coef}")
+                logger.debug(f"変数計算: {var_name} (期間: {prev_term}) 値: {var_value} * 係数: {coef.coef}")
                 prediction += coef.coef * var_value
+
+        # for coef in coefs:
+        #     if coef.variable.name == 'const':
+        #         const_value = coef.coef
+        #         continue
+
+        #     # 変数の時期を特定
+        #     term = coef.variable.previous_term
+        #     if term >= len(periods):
+        #         continue
+
+        #     target_period = periods[term]
+        #     period_key = f"{target_period['year']}_{target_period['month']}_{target_period['half']}"
+        #     print(f"期間キー: {period_key}")
+        #     period_data = weather_data.get(period_key, {})
+        #     print("期間データ:", period_data)
+
+        #     # 変数の値を取得（モデルで定義された変数かつ previous_term が一致する場合のみ）
+        #     var_value = None
+        #     var_key = (coef.variable.name, coef.variable.previous_term)
+        #     if var_key in feature_vars:
+        #         # period_data は該当期間の weather データ辞書なので、variable 名で存在を確認
+        #         if coef.variable.name in period_data:
+        #             var_value = period_data.get(coef.variable.name)
+
+        #     if var_value is not None:
+        #         print(f"変数 {coef.variable.name} (期間: {term}) の値: {var_value} * 係数: {coef.coef}")
+        #         prediction += coef.coef * var_value
 
         # 定数項を加算
         prediction += const_value
@@ -186,19 +217,28 @@ class ObserveService:
             max_price = prediction + margin
 
         # 予測結果を保存
-        with transaction.atomic():
-            ObserveReport.objects.create(
-                target_year=year,
-                target_month=month,
-                target_half=half,
-                predict_price=prediction,
-                min_price=min_price,
-                max_price=max_price,
-                model_version=model_version
-            )
+        try:
+            with transaction.atomic():
+                report = ObserveReport.objects.create(
+                    target_year=year,
+                    target_month=month,
+                    target_half=half,
+                    predict_price=prediction,
+                    min_price=min_price,
+                    max_price=max_price,
+                    model_version=model_version
+                )
+            logger.info(f"予測結果を保存しました: year={year}, month={month}, half={half}, prediction={prediction}")
+            return report
+        except Exception as e:
+            logger.error(f"予測結果の保存に失敗しました: {str(e)}", exc_info=True)
+            return None
 
     def observe_latest_model(self, model_kind_id: int, target_year: int, target_month: int, target_half: str) -> Optional[ObserveReport]:
         """最新のモデルバージョンで予測を実行"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
             latest_version = ForecastModelVersion.objects.filter(
                 model_kind_id=model_kind_id,
@@ -206,14 +246,23 @@ class ObserveService:
                 is_active=True
             ).latest('created_at')
 
-            self.predict_for_model_version(latest_version, target_year, target_month, target_half)
-            
-            return ObserveReport.objects.filter(
-                model_version=latest_version,
-                target_year=target_year,
-                target_month=target_month,
-                target_half=target_half
-            ).latest('created_at')
+            logger.info(f"最新のモデルバージョンを取得: id={latest_version.id}")
 
-        except (ForecastModelVersion.DoesNotExist, ObserveReport.DoesNotExist):
+            # predict_for_model_versionの戻り値を直接使用
+            report = self.predict_for_model_version(
+                latest_version, target_year, target_month, target_half
+            )
+            
+            if report:
+                logger.info(f"予測結果を保存しました: report_id={report.id}")
+                return report
+            else:
+                logger.warning("予測結果が生成されませんでした")
+                return None
+
+        except ForecastModelVersion.DoesNotExist:
+            logger.error(f"アクティブなモデルが見つかりません: model_kind_id={model_kind_id}, target_month={target_month}")
+            return None
+        except Exception as e:
+            logger.error(f"予測実行中にエラーが発生: {str(e)}", exc_info=True)
             return None

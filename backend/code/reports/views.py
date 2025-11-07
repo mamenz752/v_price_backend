@@ -147,7 +147,7 @@ def _veg_context(veg_lookup_name: str, display_name: str):
 
     # season price data
     # FIXME: .today()に変更
-    today = date(2025, 7, 31)
+    today = date(2025, 10, 15)
     one_year_ago = today - timedelta(days=365)
     two_years_ago = today - timedelta(days=365*2)
     five_years_ago = today - timedelta(days=365*5)

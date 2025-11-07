@@ -17,7 +17,7 @@ services:
     command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0"
     ports: ["10000:10000", "10001:10001", "10002:10002"]
     volumes:
-      - ./data:/azdata
+      - ./data:/shared:ro
     environment:
       AZURITE_ACCOUNTS: ${AZURE_ACCOUNTS}
 
@@ -46,10 +46,11 @@ services:
       PYTHONUNBUFFERED: 1
       DJANGO_LOG_LEVEL: INFO
       LOGGING_LEVEL: INFO
+      SHARED_DATA_DIR: /shared
     ports: ["8000:8000"]
     volumes:
       - ./backend/code:/code
-      - ./data:/data:ro
+      - ./data:/shared
 
   django-migrate:
     build: ./backend  # 既存のwebサービスと同じDockerイメージを使用
@@ -82,6 +83,7 @@ services:
       AZURE_FUNCTIONS_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:80
       PREFIX: ${PREFIX}
+      SHARED_DATA_DIR: /shared
     ports: ["7071:80"]
     volumes:
-      - ./data:/home/site/wwwroot/data
+      - ./data:/shared

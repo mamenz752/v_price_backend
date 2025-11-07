@@ -21,7 +21,7 @@ namespace Functions
         // 例：1時間おき。必要に応じてCRONは変更してください（UTC）。
         [Function("PriceTxtTimer")]
         public async Task RunAsync(
-            [TimerTrigger("0 */5 0 * * *", UseMonitor = true)] TimerInfo _)
+            [TimerTrigger("0 */5 * * * *", UseMonitor = true)] TimerInfo _)
         {
             var jst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
             var nowJst = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, jst);
@@ -33,17 +33,23 @@ namespace Functions
             var url = "https://pokeapi.co/api/v2/pokemon?limit=10";
             var json = await _http.GetStringAsync(url);
 
-            // ここに処理を実装してください
             var doc = JsonDocument.Parse(json);
             var count = doc.RootElement.GetProperty("results").GetArrayLength();
 
+            var sharedRoot = Environment.GetEnvironmentVariable("SHARED_DATA_DIR") ?? "/shared";
+            string subdir = Path.Combine(sharedRoot, prefix, nowJst.ToString("yyyy"), nowJst.ToString("MM"));
+            Directory.CreateDirectory(subdir);
+
             var fileName = $"poke-{nowJst:yyyyMMdd-HHmmss}.txt";
-            var blobPath = $"{prefix}/{nowJst:yyyy}/{nowJst:MM}/{fileName}";
+            var blobPath = Path.Combine(subdir, fileName);
+            string localSavePath = Path.Combine(sharedRoot, prefix, nowJst.ToString("yyyy"), nowJst.ToString("MM"), fileName);
 
             var text = $"JST={nowJst:O}\nCount={count}\nRaw={json}\n";
+
+            await File.WriteAllTextAsync(localSavePath, text);
             await BlobLogWriter.WriteTextAsync(connStr, container, blobPath, text);
 
-            await Task.CompletedTask;
+            _log.LogInformation("PriceCsvTimer: TXT file written to {BlobPath}", blobPath);
         }
     }
 }

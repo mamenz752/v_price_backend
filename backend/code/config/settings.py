@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-xa7o_f7r7bd@0+e%z)ls+hhxm(0g+j!raa=2#4i(#c@*0zqh5^
 DEBUG = True
 
 # データ関連のパス設定
-INGEST_ROOT = os.getenv("INGEST_ROOT", "/data")
+MEDIA_ROOT = os.getenv("SHARED_DATA_DIR", "/shared")
 # 新しいディレクトリ構造
 INGEST_PREFIX_PRICE = os.getenv("INGEST_PREFIX_PRICE", "price/")
 INGEST_PREFIX_WEATHER = os.getenv("INGEST_PREFIX_WEATHER", "weather/")

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -46,8 +47,16 @@ namespace Functions
                 sb.AppendLine($"{r.idx},{r.name},{r.url}");
             }
 
+            var sharedRoot = Environment.GetEnvironmentVariable("SHARED_DATA_DIR") ?? "/shared";
+            string subdir = Path.Combine(sharedRoot, prefix, nowJst.ToString("yyyy"), nowJst.ToString("MM"));
+            Directory.CreateDirectory(subdir);
+
             var fileName = $"weather-{nowJst:yyyyMMdd-HHmmss}.csv";
-            var blobPath = $"{prefix}/{nowJst:yyyy}/{nowJst:MM}/{fileName}";
+            string blobPath = Path.Combine(subdir, fileName);
+            string localSavePath = Path.Combine(sharedRoot, prefix, nowJst.ToString("yyyy"), nowJst.ToString("MM"), fileName);
+
+            File.WriteAllLines(localSavePath, sb.ToString().Split(Environment.NewLine), Encoding.GetEncoding("utf-8"));
+
             await BlobLogWriter.WriteTextAsync(connStr, container, blobPath, sb.ToString());
 
             _log.LogInformation("WeatherCsvTimer: CSV file written to {BlobPath}", blobPath);

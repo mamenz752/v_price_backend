@@ -414,7 +414,7 @@ class IngestAdminSite(admin.AdminSite):
             self.each_context(request),
             title="すべてのデータをインポート",
             settings={
-                'INGEST_ROOT': settings.INGEST_ROOT,
+                'MEDIA_ROOT': settings.MEDIA_ROOT,
                 'INGEST_PREFIX_PRICE': settings.INGEST_PREFIX_PRICE,
                 'INGEST_PREFIX_WEATHER': settings.INGEST_PREFIX_WEATHER
             }
@@ -448,7 +448,7 @@ class IngestAdminSite(admin.AdminSite):
             self.each_context(request),
             title="価格データのインポート",
             settings={
-                'INGEST_ROOT': settings.INGEST_ROOT,
+                'MEDIA_ROOT': settings.MEDIA_ROOT,
                 'INGEST_PREFIX_PRICE': settings.INGEST_PREFIX_PRICE
             }
         )
@@ -477,7 +477,7 @@ class IngestAdminSite(admin.AdminSite):
             self.each_context(request),
             title="天気データのインポート",
             settings={
-                'INGEST_ROOT': settings.INGEST_ROOT,
+                'MEDIA_ROOT': settings.MEDIA_ROOT,
                 'INGEST_PREFIX_WEATHER': settings.INGEST_PREFIX_WEATHER
             }
         )

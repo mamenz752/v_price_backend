@@ -13,6 +13,7 @@ Azuriteストレージやローカルファイルシステムからデータを�
 - **データベース**: PostgreSQL
 - **ストレージ**: Azurite (Azure Storage エミュレーター)
 - **コンテナ化**: Docker, Docker Compose
+- **自動化**: Azure Functions (.NET)
 
 ## 環境構築手順
 
@@ -76,7 +77,14 @@ docker system prune -a --volumes
 │   └── weather/           # 気象データ
 ├── db_data/               # PostgreSQLデータ
 ├── docs/                  # プロジェクト文書
-└── docker-compose.yml     # Docker Compose設定
+├── docker-compose.yml     # Docker Compose設定
+├── functions/           # Azure Functions
+│   ├── Dockerfile       # Functions用Dockerfile
+│   ├── Program.cs       # Functions起動設定
+│   └── Functions/       # Functionsコード
+│       ├── PriceTxtTimer.cs    # 価格データ取込Timer
+│       ├── WeatherCsvTimer.cs  # 気象データ取込Timer
+│       └── BlobLogWriter.cs    # Blob書き込みヘルパー
 ```
 
 ## モデル構造概要

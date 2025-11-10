@@ -227,7 +227,6 @@ class ForecastOLSRunner:
 
         try:
             # prepare_regression_data のシグネチャを変えたため、キーワードで渡す
-            # FIXME: ここがわからん
             X, y, variable_list = self.prepare_regression_data(model_name, target_month, vals=vals)
             logger.info(f"データ準備完了: X shape={X.shape}, y length={len(y)}")
             logger.info(f"データ準備完了: X shape={X.shape}, y length={len(y)}")
@@ -242,6 +241,7 @@ class ForecastOLSRunner:
         if n < (p + self.cfg.min_obs_margin):
             raise ValueError(f"観測数が不足しています: n={n}, p={p}, 必要数 >= {p + self.cfg.min_obs_margin}")
         
+        # FIXME: ここで予測実行されている可能性あり
         # OLS実行
         Xc = sm.add_constant(X, has_constant="add")
         model = sm.OLS(y, Xc).fit()
@@ -343,28 +343,8 @@ class ForecastOLSRunner:
                 res_variance=float(mse),
                 total_variation=float(tss)
             )
-            
-            # モデル作成後、最新の予測も実行
-            from observe.services import ObserveService, ObserveServiceConfig
-            observe_service = ObserveService(ObserveServiceConfig(region_name=self.cfg.region_name))
-            current_year = datetime.now().year
 
-            # TODO: 予測実行の時期をうまいこと指定する
-            try:
-                observe_service.observe_latest_model(
-                    model_kind.id,
-                    current_year,
-                    target_month,
-                    "前半"
-                )
-                observe_service.observe_latest_model(
-                    model_kind.id,
-                    current_year,
-                    target_month,
-                    "後半"
-                )
-            except Exception as e:
-                print(f"予測の実行中にエラーが発生しました: {str(e)}")
+            logger.info(f"モデル評価作成完了: ID={model_evaluation.id} for model_version={model_version.id}")
             
             # 係数の保存
             se = model.bse
@@ -413,6 +393,28 @@ class ForecastOLSRunner:
                     standard_error=float(se.get(name, np.nan)) if hasattr(se, "get") else float(se[name])
                 )
 
+            # モデル作成後、最新の予測も実行
+            from observe.services import ObserveService, ObserveServiceConfig
+            observe_service = ObserveService(ObserveServiceConfig(region_name=self.cfg.region_name))
+            current_year = datetime.now().year
+
+            logging.info("最新モデルでの予測実行を開始")
+            try:
+                observe_service.observe_latest_model(
+                    model_kind.id,
+                    current_year,
+                    target_month,
+                    "前半"
+                )
+                observe_service.observe_latest_model(
+                    model_kind.id,
+                    current_year,
+                    target_month,
+                    "後半"
+                )
+            except Exception as e:
+                print(f"予測の実行中にエラーが発生しました: {str(e)}")
+            
         return model_version
     
     def run_forecast_analysis(self, model_names: List[str], target_months: List[int], year: int = None) -> Dict:

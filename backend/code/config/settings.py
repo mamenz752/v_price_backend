@@ -233,6 +233,31 @@ LOGGING = {
             'filename': os.path.join(BASE_DIR, 'logs', 'compute.log'),
             'formatter': 'verbose',
         },
+        'forecast_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'forecast.log'),
+            'formatter': 'verbose',
+        },
+        'observe_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'observe.log'),
+            'formatter': 'verbose',
+        },
+        'feedback_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'feedback.log'),
+            'formatter': 'verbose',
+        },
+        'reports_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'reports.log'),
+            'formatter': 'verbose',
+        },
+        'accounts_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'accounts.log'),
+            'formatter': 'verbose',
+        },
     },
     'loggers': {
         'django': {
@@ -250,18 +275,28 @@ LOGGING = {
             'level': LOGGING_LEVEL,
             'propagate': True,
         },
+        'forecast': {
+            'handlers': ['console', 'forecast_file'],
+            'level': LOGGING_LEVEL,
+            'propagate': True,
+        },
+        'observe': {
+            'handlers': ['console', 'observe_file'],
+            'level': LOGGING_LEVEL,
+            'propagate': True,
+        },
         'accounts': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'accounts_file'],
             'level': LOGGING_LEVEL,
             'propagate': True,
         },
         'feedback': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'feedback_file'],
             'level': LOGGING_LEVEL,
             'propagate': True,
         },
         'reports': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'reports_file'],
             'level': LOGGING_LEVEL,
             'propagate': True,
         },

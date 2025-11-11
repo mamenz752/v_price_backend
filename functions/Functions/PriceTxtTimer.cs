@@ -1,4 +1,6 @@
 using System;
+using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
@@ -21,6 +23,7 @@ namespace Functions
         // 例：1時間おき。必要に応じてCRONは変更してください（UTC）。
         [Function("PriceTxtTimer")]
         public async Task RunAsync(
+            // [TimerTrigger("0 0 7 * * *", UseMonitor = true)] TimerInfo _)
             [TimerTrigger("0 */5 * * * *", UseMonitor = true)] TimerInfo _)
         {
             var jst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
@@ -28,29 +31,63 @@ namespace Functions
 
             var connStr = Environment.GetEnvironmentVariable("AzureWebJobsStorage");
             var container = Environment.GetEnvironmentVariable("AZURE_STORAGE_CONTAINER") ?? "container";
-            var prefix = Environment.GetEnvironmentVariable("PREFIX") ?? "test";
-
-            var url = "https://pokeapi.co/api/v2/pokemon?limit=10";
-            var json = await _http.GetStringAsync(url);
-
-            var doc = JsonDocument.Parse(json);
-            var count = doc.RootElement.GetProperty("results").GetArrayLength();
+            var prefix = Environment.GetEnvironmentVariable("TXT_PREFIX") ?? "price";
 
             var sharedRoot = Environment.GetEnvironmentVariable("SHARED_DATA_DIR") ?? "/shared";
-            string subdir = Path.Combine(sharedRoot, prefix, nowJst.ToString("yyyy"), nowJst.ToString("MM"));
-            Directory.CreateDirectory(subdir);
 
-            var fileName = $"poke-{nowJst:yyyyMMdd-HHmmss}.txt";
-            var blobPath = Path.Combine(subdir, fileName);
-            string localSavePath = Path.Combine(sharedRoot, prefix, nowJst.ToString("yyyy"), nowJst.ToString("MM"), fileName);
+            try
+            {
+                var authUrl = Environment.GetEnvironmentVariable("AUTH_PRICE_URL");
+                var dataUrl = Environment.GetEnvironmentVariable("DATA_PRICE_URL");
 
-            var text = $"JST={nowJst:O}\nCount={count}\nRaw={json}\n";
+                var authPayload = new
+                {
+                    grant_type = "client_credentials",
+                    client_id = Environment.GetEnvironmentVariable("CLIENT_ID"),
+                    client_secret = Environment.GetEnvironmentVariable("CLIENT_SECRET"),
+                };
 
-            await File.WriteAllTextAsync(localSavePath, text);
-            await BlobLogWriter.WriteTextAsync(connStr, container, blobPath, text);
+                var authContent = new StringContent(JsonSerializer.Serialize(authPayload), System.Text.Encoding.UTF8, "application/x-www-form-urlencoded");
+                using var authRes = await _http.PostAsync(authUrl, authContent);
+                authRes.EnsureSuccessStatusCode();
 
-            _log.LogInformation("PriceCsvTimer: TXT file written to {BlobPath}", blobPath);
+                var authBody = await authRes.Content.ReadFromJsonAsync<JsonElement>();
+                string accessToken = null;
+                if (authBody.TryGetProperty("access_token", out var atProp)) accessToken = atProp.GetString();
 
+                if (string.IsNullOrEmpty(accessToken))
+                {
+                    _log.LogError("Access token is null or empty.");
+                    return;
+                }
+                else
+                {
+                    var getUri = dataUrl + nowJst.ToString("yyyy-M-d");
+                    var resBody = await _http.GetStringAsync(getUri);
+                    var doc = JsonDocument.Parse(resBody);
+                    var text = doc.RootElement.GetRawText();
+
+                    string subdir = Path.Combine(sharedRoot, prefix, nowJst.ToString("yyyy"), nowJst.ToString("MM"));
+
+                    var fileName = $"{nowJst:yyyy-MM-dd}.txt";
+                    var blobPath = Path.Combine(subdir, fileName);
+                    // test: directory for local save
+                    string localSavePath = Path.Combine(sharedRoot, prefix, nowJst.ToString("yyyy"), nowJst.ToString("MM"), fileName);
+                    Directory.CreateDirectory(subdir);
+
+                    await File.WriteAllTextAsync(localSavePath, text, System.Text.Encoding.UTF8);
+                    await BlobLogWriter.WriteTextAsync(connStr, container, blobPath, text);
+
+                    _log.LogInformation("PriceCsvTimer: TXT file written to {BlobPath}", blobPath);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Error occurred while fetching data from external API.");
+            }
+            
+            // Start webhook notifications
             var notifier = new WebhookNotifier(_http, _log);
             await notifier.NotifyDailyPriceUpdateAsync();
 

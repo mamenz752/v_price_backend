@@ -11,6 +11,7 @@ using HtmlAgilityPack;
 using System.IO;
 using System.Collections.Generic;
 using System.Globalization;
+using Grpc.Net.Client.Balancer;
 
 namespace Functions
 {
@@ -44,9 +45,21 @@ namespace Functions
                 var prefNo = 67;
                 var blockNo = 47765;
                 // 月次データ取得対象日（タイマー起動時の年月を使う）
-                var targetDate = new DateTime(nowJst.Year, nowJst.Month, 15);
+                DateTime targetDate;
+                if (nowJst.Day == 1)
+                {
+                    // 1日なら前月分を取得
+                    targetDate = new DateTime(nowJst.Year, nowJst.Month, 1).AddMonths(-1);
+                }
+                else
+                {
+                    // 16日なら当月分を取得
+                    targetDate = new DateTime(nowJst.Year, nowJst.Month, 16);
+                }
+                // TODO: いつもは以下をコメントアウト
+                // var targetDate = new DateTime(nowJst.Year, nowJst.Month, nowJst.Day);
 
-                var records = await FetchMonthlyWeatherAsync(targetDate, placeType, prefNo, blockNo);
+                var records = await FetchMonthlyWeatherAsync(targetDate, placeType, prefNo, blockNo, _log);
 
                 if (records == null || records.Count == 0)
                 {
@@ -73,27 +86,31 @@ namespace Functions
                     sbLast.AppendLine(string.Join(",", r.Year, r.Month, r.Day, r.AvgTemp, r.MaxTemp, r.MinTemp, r.Precipitation, r.Sunshine, r.AvgHumidity));
                 }
 
+                // test: directory for local save
                 var sharedRoot = Environment.GetEnvironmentVariable("SHARED_DATA_DIR") ?? "/shared";
                 string subdir = Path.Combine(sharedRoot, prefix, yearStr, monthStr);
                 Directory.CreateDirectory(subdir);
 
-                var fileNameMid = $"weather-{yearStr}-{monthStr}-mid.csv";
-                var fileNameLast = $"weather-{yearStr}-{monthStr}-last.csv";
+                if (nowJst.Month == targetDate.Month + 1)
+                {
+                    var fileNameLast = $"{yearStr}_{monthStr}_last.csv";
+                    string localLastPath = Path.Combine(subdir, fileNameLast);
+                    await File.WriteAllTextAsync(localLastPath, sbLast.ToString(), Encoding.UTF8);
 
-                string localMidPath = Path.Combine(subdir, fileNameMid);
-                string localLastPath = Path.Combine(subdir, fileNameLast);
+                    string blobPathLast = Path.Combine(prefix, yearStr, monthStr, fileNameLast);
+                    await BlobLogWriter.WriteTextAsync(connStr, container, blobPathLast, sbLast.ToString());
+                }
+                else
+                {
+                    var fileNameMid = $"test_{yearStr}_{monthStr}_mid.csv";
+                    string localMidPath = Path.Combine(subdir, fileNameMid);
+                    await File.WriteAllTextAsync(localMidPath, sbMid.ToString(), Encoding.UTF8);
 
-                await File.WriteAllTextAsync(localMidPath, sbMid.ToString(), Encoding.UTF8);
-                await File.WriteAllTextAsync(localLastPath, sbLast.ToString(), Encoding.UTF8);
+                    string blobPathMid = Path.Combine(prefix, yearStr, monthStr, fileNameMid);
+                    await BlobLogWriter.WriteTextAsync(connStr, container, blobPathMid, sbMid.ToString());
+                }
 
-                // Blob にアップロード（パスは仮想ディレクトリを含む形で）
-                string blobPathMid = Path.Combine(prefix, yearStr, monthStr, fileNameMid);
-                string blobPathLast = Path.Combine(prefix, yearStr, monthStr, fileNameLast);
-
-                await BlobLogWriter.WriteTextAsync(connStr, container, blobPathMid, sbMid.ToString());
-                await BlobLogWriter.WriteTextAsync(connStr, container, blobPathLast, sbLast.ToString());
-
-                _log.LogInformation("WeatherCsvTimer: CSV files written to {BlobMid} and {BlobLast}", blobPathMid, blobPathLast);
+                _log.LogInformation("WeatherCsvTimer: CSV files written");
 
                 var notifier = new WebhookNotifier(_http, _log);
                 await notifier.NotifyDeadlineWeatherUpdateAsync();
@@ -105,37 +122,6 @@ namespace Functions
             }
         }
 
-
-        //             var rows = doc.RootElement.GetProperty("results").EnumerateArray()
-        //                 .Select((e, i) => new { idx = i + 1, name = e.GetProperty("name").GetString(), url = e.GetProperty("url").GetString() });
-
-        //             var sb = new StringBuilder();
-        //             sb.AppendLine("idx,name,url");
-        //             foreach (var r in rows)
-        //             {
-        //                 sb.AppendLine($"{r.idx},{r.name},{r.url}");
-        //             }
-
-        //             var sharedRoot = Environment.GetEnvironmentVariable("SHARED_DATA_DIR") ?? "/shared";
-        //             string subdir = Path.Combine(sharedRoot, prefix, nowJst.ToString("yyyy"), nowJst.ToString("MM"));
-        //             Directory.CreateDirectory(subdir);
-
-        //             var fileName = $"weather-{nowJst:yyyyMMdd-HHmmss}.csv";
-        //             string blobPath = Path.Combine(subdir, fileName);
-        //             string localSavePath = Path.Combine(sharedRoot, prefix, nowJst.ToString("yyyy"), nowJst.ToString("MM"), fileName);
-
-        //             File.WriteAllLines(localSavePath, sb.ToString().Split(Environment.NewLine), Encoding.GetEncoding("utf-8"));
-
-        //             await BlobLogWriter.WriteTextAsync(connStr, container, blobPath, sb.ToString());
-
-        //             _log.LogInformation("WeatherCsvTimer: CSV file written to {BlobPath}", blobPath);
-
-        //             var notifier = new WebhookNotifier(_http, _log);
-        //             await notifier.NotifyDeadlineWeatherUpdateAsync();
-
-        //             _log.LogInformation("WeatherCsvTimer: Deadline weather update webhook notified.");
-        //         }
-        // }
         // --- helper types & methods ---
         public class WeatherRecord
         {
@@ -168,7 +154,7 @@ namespace Functions
             return (mid, last);
         }
 
-        private static async Task<List<WeatherRecord>> FetchMonthlyWeatherAsync(DateTime date, string placeType, int prefNo, int blockNo)
+        private static async Task<List<WeatherRecord>> FetchMonthlyWeatherAsync(DateTime date, string placeType, int prefNo, int blockNo, ILogger<WeatherCsvTimer> _log)
         {
             var url =
                 $"https://www.data.jma.go.jp/obd/stats/etrn/view/daily_{placeType.ToLower()}1.php" +
@@ -188,70 +174,147 @@ namespace Functions
             var doc = new HtmlAgilityPack.HtmlDocument();
             doc.LoadHtml(html);
 
+            _log.LogInformation("WeatherCsvTimer: Successfully fetched HTML from {Url}", url);
+            // TODO: HTML解析ロジックをここに実装
+
             var table = doc.DocumentNode.SelectSingleNode("//table[contains(@class,'data2_s')]");
             if (table == null) return new List<WeatherRecord>();
 
-            var rows = table.SelectNodes("./tr")?.ToList() ?? new List<HtmlAgilityPack.HtmlNode>();
-            if (rows.Count == 0) return new List<WeatherRecord>();
+            var parsed = ParseTableToGrid(table, headerRowCount: 4); // headerRowCount は調整可
+            var headerKeys = parsed.HeaderKeys;
+            var dataGrid = parsed.Rows; // List<string[]>
 
-            var headerRows = rows.Take(3).ToList();
-            var dataRows = rows.Skip(3).ToList();
-
-            var headerCells = headerRows
-                .Select(r => r.SelectNodes("./th|./td")?.ToList() ?? new List<HtmlAgilityPack.HtmlNode>())
-                .ToList();
-
-            int colCount = headerCells.Any() ? headerCells.Max(r => r.Count) : 0;
-            string[] headerKeys = new string[colCount];
-            for (int c = 0; c < colCount; c++)
+            // デバッグ: ヘッダをログ出力（解析確認用）
+            for (int i = 0; i < headerKeys.Length; i++)
             {
-                var parts = new List<string>();
-                foreach (var hr in headerCells)
-                {
-                    if (c < hr.Count)
-                    {
-                        var text = hr[c].InnerText.Replace("\n", "").Replace("\t", "").Replace("\r", "").Trim();
-                        if (!string.IsNullOrEmpty(text)) parts.Add(text);
-                    }
-                }
-                headerKeys[c] = string.Join("|", parts);
+                _log.LogInformation("Header[{Index}] = {Key}", i, headerKeys[i]);
             }
 
-            int idxDay = Array.FindIndex(headerKeys, h => h.Contains("日"));
-            int idxAvgTemp = Array.FindIndex(headerKeys, h => h.Contains("気温") && h.Contains("平均"));
-            int idxMaxTemp = Array.FindIndex(headerKeys, h => h.Contains("気温") && h.Contains("最高"));
-            int idxMinTemp = Array.FindIndex(headerKeys, h => h.Contains("気温") && h.Contains("最低"));
-            int idxPrecip = Array.FindIndex(headerKeys, h => h.Contains("降水量") && (h.Contains("合計") || h.Contains("総和")));
-            int idxSunshine = Array.FindIndex(headerKeys, h => h.Contains("日照") && (h.Contains("時間") || h.Contains("日照時間")));
-            int idxAvgHum = Array.FindIndex(headerKeys, h => h.Contains("湿度") && h.Contains("平均"));
+            int FindColumn(params string[] parts)
+            {
+                for (int i = 0; i < headerKeys.Length; i++)
+                {
+                    var key = headerKeys[i] ?? "";
+                    bool ok = true;
+                    foreach (var p in parts)
+                    {
+                        if (string.IsNullOrEmpty(p)) continue;
+                        if (!key.Contains(p)) { ok = false; break; }
+                    }
+                    if (ok) return i;
+                }
+                return -1;
+            }
+
+            int idxDay = FindColumn("日");
+            int idxAvgTemp = FindColumn("気温", "平均");
+            int idxMaxTemp = FindColumn("気温", "最高");
+            int idxMinTemp = FindColumn("気温", "最低");
+            int idxPrecip = FindColumn("降水量", "合計");
+            int idxSunshine = FindColumn("日照", "時間"); // 日照 時間 (h)などに対応
+            int idxAvgHum = FindColumn("湿度", "平均");
 
             var result = new List<WeatherRecord>();
-            foreach (var row in dataRows)
+            foreach (var cells in dataGrid)
             {
-                var tds = row.SelectNodes("./td")?.ToList();
-                if (tds == null || tds.Count == 0) continue;
-                if (idxDay < 0 || idxDay >= tds.Count) continue;
-
-                var dayText = tds[idxDay].InnerText.Trim();
+                // cells は string[] 長さはヘッダ幅
+                if (idxDay < 0 || idxDay >= cells.Length) continue;
+                var dayText = (cells[idxDay] ?? "").Trim();
                 if (!int.TryParse(dayText, out var day)) continue;
+
+                double ParseCell(int idx) =>
+                    (idx >= 0 && idx < cells.Length) ? ToDouble(cells[idx]) : 0;
 
                 var rec = new WeatherRecord
                 {
-                    Year = date.Year,
+                    Year = date.Year, // Python の temp_data_c["年"] = year と同じ
                     Month = date.Month,
                     Day = day,
-                    AvgTemp = (idxAvgTemp >= 0 && idxAvgTemp < tds.Count) ? ToDouble(tds[idxAvgTemp].InnerText) : 0,
-                    MaxTemp = (idxMaxTemp >= 0 && idxMaxTemp < tds.Count) ? ToDouble(tds[idxMaxTemp].InnerText) : 0,
-                    MinTemp = (idxMinTemp >= 0 && idxMinTemp < tds.Count) ? ToDouble(tds[idxMinTemp].InnerText) : 0,
-                    Precipitation = (idxPrecip >= 0 && idxPrecip < tds.Count) ? ToDouble(tds[idxPrecip].InnerText) : 0,
-                    Sunshine = (idxSunshine >= 0 && idxSunshine < tds.Count) ? ToDouble(tds[idxSunshine].InnerText) : 0,
-                    AvgHumidity = (idxAvgHum >= 0 && idxAvgHum < tds.Count) ? ToDouble(tds[idxAvgHum].InnerText) : 0
+                    AvgTemp = ParseCell(idxAvgTemp),
+                    MaxTemp = ParseCell(idxMaxTemp),
+                    MinTemp = ParseCell(idxMinTemp),
+                    Precipitation = ParseCell(idxPrecip),
+                    Sunshine = ParseCell(idxSunshine),
+                    AvgHumidity = ParseCell(idxAvgHum)
                 };
 
                 result.Add(rec);
             }
 
+            _log.LogInformation("FetchMonthlyWeatherAsync: parsed {Count} records for {Year}/{Month}", result.Count, date.Year, date.Month);
             return result;
+        }
+        
+        private class TableParsedResult
+        {
+            public string[] HeaderKeys { get; set; }
+            public List<string[]> Rows { get; set; }
+        }
+
+        private static TableParsedResult ParseTableToGrid(HtmlNode tableNode, int headerRowCount = 3)
+        {
+            var allRows = tableNode.SelectNodes(".//tr")?.ToList() ?? new List<HtmlNode>();
+            var grid = new List<List<string>>();
+            var occupied = new HashSet<(int r, int c)>();
+            int maxCols = 0;
+
+            for (int r = 0; r < allRows.Count; r++)
+            {
+                if (grid.Count <= r) grid.Add(new List<string>());
+                var cells = allRows[r].SelectNodes("./th|./td")?.ToList() ?? new List<HtmlNode>();
+                int c = 0;
+                foreach (var cell in cells)
+                {
+                    while (occupied.Contains((r, c))) c++;
+                    int rowspan = 1, colspan = 1;
+                    if (cell.Attributes["rowspan"] != null) int.TryParse(cell.Attributes["rowspan"].Value, out rowspan);
+                    if (cell.Attributes["colspan"] != null) int.TryParse(cell.Attributes["colspan"].Value, out colspan);
+
+                    var txt = cell.InnerText.Replace("\r", " ").Replace("\n", " ").Replace("\t", " ").Trim();
+
+                    for (int rr = r; rr < r + rowspan; rr++)
+                    {
+                        while (grid.Count <= rr) grid.Add(new List<string>());
+                        for (int cc = c; cc < c + colspan; cc++)
+                        {
+                            while (grid[rr].Count <= cc) grid[rr].Add(null);
+                            if (rr == r && cc == c) grid[rr][cc] = txt;
+                            occupied.Add((rr, cc));
+                        }
+                    }
+
+                    c += colspan;
+                    if (c > maxCols) maxCols = c;
+                }
+                while (grid[r].Count < maxCols) grid[r].Add(null);
+            }
+
+            int useHeaderRows = Math.Min(headerRowCount, grid.Count);
+            var headerKeys = new string[maxCols];
+            for (int col = 0; col < maxCols; col++)
+            {
+                var parts = new List<string>();
+                for (int hr = 0; hr < useHeaderRows; hr++)
+                {
+                    if (col < grid[hr].Count && !string.IsNullOrWhiteSpace(grid[hr][col]))
+                        parts.Add(grid[hr][col]);
+                }
+                headerKeys[col] = string.Join("|", parts);
+            }
+
+            var dataRows = new List<string[]>();
+            for (int r = useHeaderRows; r < grid.Count; r++)
+            {
+                var arr = new string[maxCols];
+                for (int col = 0; col < maxCols; col++)
+                {
+                    arr[col] = (col < grid[r].Count) ? grid[r][col] ?? "" : "";
+                }
+                if (arr.All(s => string.IsNullOrEmpty(s))) continue;
+                dataRows.Add(arr);
+            }
+
+            return new TableParsedResult { HeaderKeys = headerKeys, Rows = dataRows };
         }
     }
     }

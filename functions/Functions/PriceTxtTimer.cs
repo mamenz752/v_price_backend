@@ -40,16 +40,27 @@ namespace Functions
                 var authUrl = Environment.GetEnvironmentVariable("AUTH_PRICE_URL");
                 var dataUrl = Environment.GetEnvironmentVariable("DATA_PRICE_URL");
 
-                var authPayload = new
+                var authPayload = new Dictionary<string, string>
                 {
-                    grant_type = "client_credentials",
-                    client_id = Environment.GetEnvironmentVariable("CLIENT_ID"),
-                    client_secret = Environment.GetEnvironmentVariable("CLIENT_SECRET"),
+                    ["grant_type"] = "client_credentials",
+                    ["client_id"] = Environment.GetEnvironmentVariable("CLIENT_ID") ?? "",
+                    ["client_secret"] = Environment.GetEnvironmentVariable("CLIENT_SECRET") ?? ""
                 };
 
-                var authContent = new StringContent(JsonSerializer.Serialize(authPayload), System.Text.Encoding.UTF8, "application/x-www-form-urlencoded");
+                var authContent = new FormUrlEncodedContent(authPayload);
+                // var authContent = new StringContent(JsonSerializer.Serialize(authPayload), System.Text.Encoding.UTF8, "application/x-www-form-urlencoded");
+
+                _log.LogInformation("Auth URL: {Url}", authUrl);
+                _log.LogDebug("Auth payload keys: {Keys}", string.Join(",", authPayload.GetType().GetProperties().Select(p => p.Name)));
+
                 using var authRes = await _http.PostAsync(authUrl, authContent);
                 authRes.EnsureSuccessStatusCode();
+
+                // ステータスとボディを必ずログ
+                var authStatus = (int)authRes.StatusCode;
+                var authResBody = await authRes.Content.ReadAsStringAsync();
+                _log.LogInformation("Auth response status: {Status}", authStatus);
+                _log.LogDebug("Auth response body: {Body}", authResBody);
 
                 var authBody = await authRes.Content.ReadFromJsonAsync<JsonElement>();
                 string accessToken = null;

@@ -100,7 +100,7 @@ class ObserveService:
                 continue
         return market_data
 
-    def predict_for_model_version(self, model_version: ForecastModelVersion, year: int, month: int, half: str, force_update: bool = False) -> None:
+    def predict_for_model_version(self, model_version: ForecastModelVersion, year: int, month: int, half: str, force_update: bool = False, allow_past_predictions: bool = False) -> Optional[float]:
         """
         特定のモデルバージョンに基づいて予測を実行し、結果を保存する
         🔥 重要: 予測結果は実行時点より未来の日付でのみ保存される
@@ -116,10 +116,9 @@ class ObserveService:
 
         logger = logging.getLogger(__name__)
         logger.info(
-            "[PREDICT] START model_version_id=%s, model_kind_id=%s, target_month=%s, target=%s-%s-%s",
+            "[PREDICT] START model_version_id=%s, allow_past=%s, target=%s-%s-%s",
             getattr(model_version, "id", None),
-            getattr(model_version.model_kind, "id", None),
-            getattr(model_version, "target_month", None),
+            allow_past_predictions,
             year, month, half,
         )
 
@@ -160,90 +159,87 @@ class ObserveService:
             # market_data = self._get_market_data(periods, model_version.model_kind.vegetable.id)
 
             logger.info(f"気象データ: {weather_data}")
+        except Exception as e:
+            logger.error(f"予測実行中にエラーが発生しました: {str(e)}", exc_info=True)
+            return None
 
-            # 予測値を計算
-            prediction = 0.0
-            const_value = 0.0
+        # 予測値を計算
+        prediction = 0.0
+        const_value = 0.0
+        used_variables_count = 0
 
-            # モデルで定義されている (name, previous_term) の集合を先に取得しておく
-            feature_vars = set(ForecastModelFeatureSet.objects.filter(
-                model_kind=model_version.model_kind,
-                target_month=model_version.target_month
-            ).values_list('variable__name', 'variable__previous_term'))
+        logger.info(f"🔍 予測計算開始: target={year}-{month} {half}, coefficients_count={len(coef_dict)}")
 
-            for (var_name, prev_term), coef in coef_dict.items():
-                if var_name == 'const':
-                    const_value = coef.coef
-                    continue
+        # モデルで定義されている (name, previous_term) の集合を先に取得しておく
+        feature_vars = set(ForecastModelFeatureSet.objects.filter(
+            model_kind=model_version.model_kind,
+            target_month=model_version.target_month
+        ).values_list('variable__name', 'variable__previous_term'))
 
-                if prev_term >= len(periods):
-                    continue
+        for (var_name, prev_term), coef in coef_dict.items():
+            if var_name == 'const':
+                const_value = coef.coef
+                logger.info(f"🔍 定数項: {const_value}")
+                continue
 
-                target_period = periods[prev_term]
-                period_key = f"{target_period['year']}_{target_period['month']}_{target_period['half']}"
-                period_data = weather_data.get(period_key, {})
+            if prev_term >= len(periods):
+                logger.warning(f"🔍 期間不足でスキップ: {var_name}_{prev_term}, periods_length={len(periods)}")
+                continue
 
-                var_value = period_data.get(var_name)
-                if var_value is not None:
-                    logger.debug(f"変数計算: {var_name} (期間: {prev_term}) 値: {var_value} * 係数: {coef.coef}")
-                    prediction += coef.coef * var_value
-
-        # for coef in coefs:
-        #     if coef.variable.name == 'const':
-        #         const_value = coef.coef
-        #         continue
-
-        #     # 変数の時期を特定
-        #     term = coef.variable.previous_term
-        #     if term >= len(periods):
-        #         continue
-
-        #     target_period = periods[term]
-        #     period_key = f"{target_period['year']}_{target_period['month']}_{target_period['half']}"
-        #     print(f"期間キー: {period_key}")
-        #     period_data = weather_data.get(period_key, {})
-        #     print("期間データ:", period_data)
-
-        #     # 変数の値を取得（モデルで定義された変数かつ previous_term が一致する場合のみ）
-        #     var_value = None
-        #     var_key = (coef.variable.name, coef.variable.previous_term)
-        #     if var_key in feature_vars:
-        #         # period_data は該当期間の weather データ辞書なので、variable 名で存在を確認
-        #         if coef.variable.name in period_data:
-        #             var_value = period_data.get(coef.variable.name)
-
-        #     if var_value is not None:
-        #         print(f"変数 {coef.variable.name} (期間: {term}) の値: {var_value} * 係数: {coef.coef}")
-        #         prediction += coef.coef * var_value
-
-            # 定数項を加算
-            prediction += const_value
-
-            # モデルのRMSEを取得して信頼区間を計算
-            try:
-                model_evaluation = model_version.forecastmodelevaluation_set.latest('created_at')
-                rmse = model_evaluation.rmse
-                min_price = prediction - rmse
-                max_price = prediction + rmse
-            except:
-                # RMSEが取得できない場合は、予測値の±5%をデフォルトとして使用
-                margin = prediction * 0.05
-                min_price = prediction - margin
-                max_price = prediction + margin
-
-            # 🔥 重要: 予測結果の未来日付保証チェック
-            current_date = date.today()
-            prediction_date = self._calculate_prediction_date(year, month, half)
+            target_period = periods[prev_term]
+            period_key = f"{target_period['year']}_{target_period['month']}_{target_period['half']}"
+            period_data = weather_data.get(period_key, {})
             
-            if prediction_date <= current_date:
-                logger.warning(
-                    "Skipping non-future prediction: prediction_date=%s <= current_date=%s", 
-                    prediction_date, current_date
-                )
-                return None
-            
-            # 予測結果を保存（未来日付のみ、またはforce_update=Trueの場合）
-            try:
+            logger.info(f"🔍 変数処理: {var_name}_{prev_term}, period_key={period_key}")
+            logger.info(f"🔍 期間データ keys: {list(period_data.keys())}")
+
+            var_value = period_data.get(var_name)
+            if var_value is not None:
+                contribution = coef.coef * var_value
+                prediction += contribution
+                used_variables_count += 1
+                logger.info(f"🔍 変数適用: {var_name}_{prev_term} = {var_value} * {coef.coef} = {contribution}")
+            else:
+                logger.warning(f"🔍 変数値なし: {var_name}_{prev_term}, period_key={period_key}")
+                logger.warning(f"🔍 利用可能なデータ: {period_data}")
+
+        logger.info(f"🔍 使用変数数: {used_variables_count}/{len(coef_dict)-1}")  # constを除く        # for coef in coefs:
+        
+        # 定数項を加算
+        prediction += const_value
+        logger.info(f"🔍 最終予測値: 変数の合計={prediction-const_value} + 定数={const_value} = {prediction}")
+
+        # モデルのRMSEを取得して信頼区間を計算
+        try:
+            model_evaluation = model_version.forecastmodelevaluation_set.latest('created_at')
+            rmse = model_evaluation.rmse
+            min_price = prediction - rmse
+            max_price = prediction + rmse
+        except:
+            # RMSEが取得できない場合は、予測値の±5%をデフォルトとして使用
+            margin = prediction * 0.05
+            min_price = prediction - margin
+            max_price = prediction + margin
+
+        # 🔧 未来日付チェック（allow_past_predictions=Falseの場合のみ）
+        if not allow_past_predictions:
+                current_date = date.today()
+                prediction_date = self._calculate_prediction_date(year, month, half)
+                
+                if prediction_date <= current_date:
+                    logger.warning(
+                        "Skipping non-future prediction (Webhook mode): prediction_date=%s <= current_date=%s", 
+                        prediction_date, current_date
+                    )
+                    return None
+        else:
+            logger.info(
+                "Past prediction allowed (Feedback mode): target=%s-%s-%s", 
+                year, month, half
+            )
+        
+        # 予測結果を保存（未来日付のみ、またはforce_update=Trueの場合）
+        try:
                 with transaction.atomic():
                     if force_update:
                         # force_update=Trueの場合は既存レコードを確認して更新または新規作成
@@ -298,57 +294,71 @@ class ObserveService:
                     
                 # 🔥 重要: ObserveReportインスタンスではなく予測値（float）を返す
                 return float(prediction)
-            except Exception as e:
-                logger.error(f"予測結果の保存に失敗しました: {str(e)}", exc_info=True)
-                return None
+        except Exception as e:
+            logger.error(f"予測結果の保存に失敗しました: {str(e)}", exc_info=True)
+            return None
         except Exception as e:
             logger.error(f"予測実行中にエラーが発生しました: {str(e)}", exc_info=True)
             return None
 
-    def observe_latest_model(self, model_kind_id: int, target_year: int, target_month: int, target_half: str) -> Optional[ObserveReport]:
+    def observe_latest_model(self, model_kind_id: int, target_year: int, target_month: int, target_half: str, allow_past_predictions: bool = False, feedback_mode: bool = False) -> Optional[ObserveReport]:
         """
         最新のモデルバージョンで予測を実行
-        🔥 重要: 予測対象が実行時点より未来であることを保証
+        
+        Args:
+            allow_past_predictions: Trueの場合、過去予測も許可（/feedback用）
+            feedback_mode: Trueの場合、指定されたtarget_monthのみ予測（/feedback用）
         """
         logger = logging.getLogger(__name__)
         
-        # 🔥 重要: 予測対象が未来日付であることを事前チェック
-        current_date = date.today()
-        prediction_date = self._calculate_prediction_date(target_year, target_month, target_half)
-        
-        if prediction_date <= current_date:
-            logger.warning(
-                "Skipping non-future prediction in observe_latest_model: prediction_date=%s <= current_date=%s", 
-                prediction_date, current_date
-            )
-            return None
+        # 🔧 feedback_mode時は未来日付チェックを無効化
+        if not feedback_mode and not allow_past_predictions:
+            current_date = date.today()
+            prediction_date = self._calculate_prediction_date(target_year, target_month, target_half)
+            
+            if prediction_date <= current_date:
+                logger.warning(
+                    "Skipping non-future prediction in observe_latest_model (Webhook mode): prediction_date=%s <= current_date=%s", 
+                    prediction_date, current_date
+                )
+                return None
         
         try:
             latest_version = ForecastModelVersion.objects.filter(
                 model_kind_id=model_kind_id,
-                target_month=target_month,
+                target_month=target_month,  # 🔧 指定されたtarget_monthのモデルのみ
                 is_active=True
             ).latest('created_at')
 
             logger.info(
-                "最新モデルバージョンで未来予測実行: model_id=%s, target=%s-%02d %s, prediction_date=%s", 
-                latest_version.id, target_year, target_month, target_half, prediction_date
+                "最新モデルバージョンで予測実行: model_id=%s, target=%s-%02d %s, feedback_mode=%s", 
+                latest_version.id, target_year, target_month, target_half, feedback_mode
             )
 
-            # predict_for_model_versionの戻り値を直接使用
-            report = self.predict_for_model_version(
-                latest_version, target_year, target_month, target_half
+            # 🔧 feedback_mode時はallow_past_predictionsをTrueに設定
+            prediction_value = self.predict_for_model_version(
+                latest_version, target_year, target_month, target_half, 
+                force_update=True, 
+                allow_past_predictions=allow_past_predictions or feedback_mode
             )
             
-            if report:
+            if prediction_value:
+                # ObserveReportを取得して返す
+                report = ObserveReport.objects.filter(
+                    model_version=latest_version,
+                    target_year=target_year,
+                    target_month=target_month,
+                    target_half=target_half
+                ).first()
+                
                 logger.info(
-                    "未来予測結果保存成功: report_id=%s, target=%s-%02d %s, prediction_date=%s", 
-                    report.id, target_year, target_month, target_half, prediction_date
+                    "予測結果保存成功 (feedback_mode=%s): report_id=%s, target=%s-%02d %s", 
+                    feedback_mode, report.id if report else "None", target_year, target_month, target_half
                 )
                 return report
             else:
                 logger.warning(
-                    "未来予測結果が生成されませんでした: target=%s-%02d %s", 
+                    "予測結果が生成されませんでした: target=%s-%02d %s", 
                     target_year, target_month, target_half
                 )
                 return None

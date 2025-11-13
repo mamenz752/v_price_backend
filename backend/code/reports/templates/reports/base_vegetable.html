@@ -17,17 +17,17 @@
                     <div class="d-flex gap-3 align-items-center">
                         <div class="d-flex flex-column align-items-center">
                             <small class="text-muted mb-1">予測最安値</small>
-                            <span class="min-predict-price fs-5 fw-bold">50円</span>
+                            <span class="min-predict-price fs-5 fw-bold">{{ min_predict_price|default:"-" }}{% if min_predict_price %}円{% endif %}</span>
                         </div>
                         <span>-</span>
                         <div class="d-flex flex-column align-items-center">
                             <small class="text-muted mb-1">予測中値</small>
-                            <span class="median-predict-price fs-5 fw-bold">75円</span>
+                            <span class="median-predict-price fs-5 fw-bold">{{ predict_price|default:"-" }}{% if predict_price %}円{% endif %}</span>
                         </div>
                         <span>-</span>
                         <div class="d-flex flex-column align-items-center">
                             <small class="text-muted mb-1">予測最高値</small>
-                            <span class="max-predict-price fs-5 fw-bold">100円</span>
+                            <span class="max-predict-price fs-5 fw-bold">{{ max_predict_price|default:"-" }}{% if max_predict_price %}円{% endif %}</span>
                         </div>
                     </div>
                 </div>

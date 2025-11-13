@@ -309,7 +309,8 @@ class ForecastOLSRunner:
                     model_version=model_version,
                     year=current_year,
                     month=target_month,
-                    half=current_half
+                    half=current_half,
+                    allow_past_predictions=True
                 )
 
                 logger.info(f"モデルバージョン作成完了: ID={model_version.id}")
@@ -408,13 +409,15 @@ class ForecastOLSRunner:
                     model_kind.id,
                     current_year,
                     target_month,
-                    "前半"
+                    "前半",
+                    feedback_mode=True
                 )
                 observe_service.observe_latest_model(
                     model_kind.id,
                     current_year,
                     target_month,
-                    "後半"
+                    "後半",
+                    feedback_mode=True
                 )
             except Exception as e:
                 print(f"予測の実行中にエラーが発生しました: {str(e)}")
@@ -682,7 +685,8 @@ class ForecastOLSRunner:
                         year=ty,
                         month=tmonth, 
                         half=half,
-                        force_update=True
+                        force_update=True,
+                        allow_past_predictions=False  # 🔧 Webhook: 未来予測のみ
                     )
                     
                     log.info("ObserveService returned type: %s, value: %s", type(prediction_value), prediction_value)

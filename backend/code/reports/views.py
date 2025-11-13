@@ -6,6 +6,7 @@ from django.views import generic
 # from .models import CalcMarket
 from ingest.models import IngestMarket, Vegetable
 from compute.models import ComputeMarket
+from observe.models import ObserveReport
 from datetime import date, timedelta
 
 
@@ -335,6 +336,30 @@ def _veg_context(veg_lookup_name: str, display_name: str):
         latest_trend = "データなし"
         print("Debug: No latest date available")
 
+    # ObserveReportから予測価格データを取得
+    predict_price = None
+    min_predict_price = None
+    max_predict_price = None
+    
+    if latest_date:
+        current_half = "前半" if latest_date.day <= 15 else "後半"
+        observe_report = ObserveReport.objects.filter(
+            model_version__model_kind__vegetable=vegetable,
+            target_year=latest_date.year,
+            target_month=latest_date.month,
+            target_half=current_half
+        ).order_by('-created_at').first()
+
+        print(f"Debug: Looking for ObserveReport with year={latest_date.year}, month={latest_date.month}, half={current_half}")
+        print(f"Debug: Found observe_report: {observe_report}")
+        
+        if observe_report:
+            predict_price = observe_report.predict_price
+            min_predict_price = observe_report.min_price
+            max_predict_price = observe_report.max_price
+            print(f"Debug: Found prediction data - predict: {predict_price}, min: {min_predict_price}, max: {max_predict_price}")
+        else:
+            print("Debug: No ObserveReport found")
 
     # デバッグ情報の出力
     print(f"Debug: Context Values:")
@@ -433,6 +458,10 @@ def _veg_context(veg_lookup_name: str, display_name: str):
         'volume': volume,
         'display_date': display_date,  # 表示用の日付文字列を追加
         'latest_trend': latest_trend,  # データがない場合は "データなし" が設定される
+        # 予測価格データ
+        'predict_price': int(round(predict_price)) if predict_price is not None else None,
+        'min_predict_price': int(round(min_predict_price)) if min_predict_price is not None else None,
+        'max_predict_price': int(round(max_predict_price)) if max_predict_price is not None else None,
         # 直近3カ月の統計データ
         'season_current_avg': int(round(season_current_avg)) if season_current_avg is not None else None,
         'season_current_min': int(round(season_current_min)) if season_current_min is not None else None,

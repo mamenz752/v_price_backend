@@ -23,8 +23,7 @@ namespace Functions
         // 例：1時間おき。必要に応じてCRONは変更してください（UTC）。
         [Function("PriceTxtTimer")]
         public async Task RunAsync(
-            // [TimerTrigger("0 0 7 * * *", UseMonitor = true)] TimerInfo _)
-            [TimerTrigger("0 */5 * * * *", UseMonitor = true)] TimerInfo _)
+            [TimerTrigger("0 0 7 * * *", UseMonitor = true)] TimerInfo _)
         {
             var jst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
             var nowJst = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, jst);
@@ -60,10 +59,9 @@ namespace Functions
                 var authStatus = (int)authRes.StatusCode;
                 var authResBody = await authRes.Content.ReadAsStringAsync();
                 _log.LogInformation("Auth response status: {Status}", authStatus);
-                _log.LogDebug("Auth response body: {Body}", authResBody);
 
                 var authBody = await authRes.Content.ReadFromJsonAsync<JsonElement>();
-                string accessToken = null;
+                string accessToken = authBody.GetProperty("access_token").GetString() ?? "";
                 if (authBody.TryGetProperty("access_token", out var atProp)) accessToken = atProp.GetString();
 
                 if (string.IsNullOrEmpty(accessToken))
@@ -74,9 +72,20 @@ namespace Functions
                 else
                 {
                     var getUri = dataUrl + nowJst.ToString("yyyy-M-d");
-                    var resBody = await _http.GetStringAsync(getUri);
+                    var client = new HttpClient();
+                    var reqData = new HttpRequestMessage(HttpMethod.Get, getUri);
+                    reqData.Headers.Add("X-Authorization", $"{accessToken}");
+                    var res = await client.SendAsync(reqData);
+
+                    var resBody = await res.Content.ReadAsStringAsync();
+                    if (!res.IsSuccessStatusCode)
+                    {
+                        _log.LogError("Data GET failed: {Status} {Body}", (int)res.StatusCode, resBody);
+                        return;
+                    }
                     var doc = JsonDocument.Parse(resBody);
-                    var text = doc.RootElement.GetRawText();
+                    var textRaw = doc.RootElement.GetRawText();
+                    var text = textRaw.Replace("\r\n", "").Replace("\n", "").Replace("\r", "");
 
                     string subdir = Path.Combine(sharedRoot, prefix, nowJst.ToString("yyyy"), nowJst.ToString("MM"));
 

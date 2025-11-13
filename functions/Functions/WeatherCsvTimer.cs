@@ -72,6 +72,7 @@ namespace Functions
                 var yearStr = targetDate.Year.ToString("D4");
                 var monthStr = targetDate.Month.ToString("D2");
 
+                // 基本9項目のCSVを作成
                 var sbMid = new StringBuilder();
                 sbMid.AppendLine("年,月,日,平均気温,最高気温,最低気温,降水量の合計,日照時間,平均湿度");
                 foreach (var r in mid)
@@ -206,13 +207,14 @@ namespace Functions
                 return -1;
             }
 
-            int idxDay = FindColumn("日");
-            int idxAvgTemp = FindColumn("気温", "平均");
-            int idxMaxTemp = FindColumn("気温", "最高");
-            int idxMinTemp = FindColumn("気温", "最低");
-            int idxPrecip = FindColumn("降水量", "合計");
-            int idxSunshine = FindColumn("日照", "時間"); // 日照 時間 (h)などに対応
-            int idxAvgHum = FindColumn("湿度", "平均");
+            // ログ出力結果に基づいた正確なカラム検索
+            int idxDay = 0;  // Header[0] = 日
+            int idxAvgTemp = FindColumn("気温(℃)", "平均");  // Header[6] = 気温(℃)|平均
+            int idxMaxTemp = FindColumn("最高");             // Header[7] = 最高
+            int idxMinTemp = FindColumn("最低");             // Header[8] = 最低
+            int idxPrecip = FindColumn("降水量(mm)", "合計"); // Header[3] = 降水量(mm)|合計
+            int idxSunshine = FindColumn("日照時間(h)");     // Header[16] = 日照時間(h)
+            int idxAvgHum = FindColumn("湿度(％)", "平均");   // Header[9] = 湿度(％)|平均
 
             var result = new List<WeatherRecord>();
             foreach (var cells in dataGrid)
@@ -227,7 +229,7 @@ namespace Functions
 
                 var rec = new WeatherRecord
                 {
-                    Year = date.Year, // Python の temp_data_c["年"] = year と同じ
+                    Year = date.Year,
                     Month = date.Month,
                     Day = day,
                     AvgTemp = ParseCell(idxAvgTemp),

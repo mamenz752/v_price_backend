@@ -1,9 +1,11 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, List, Dict
-from datetime import datetime
+from datetime import datetime, date
 from django.db.models import Q
 from django.db import transaction
+from django.utils import timezone
+import logging
 from forecast.models import (
     ForecastModelVersion,
     ForecastModelCoef,
@@ -98,8 +100,11 @@ class ObserveService:
                 continue
         return market_data
 
-    def predict_for_model_version(self, model_version: ForecastModelVersion, year: int, month: int, half: str) -> None:
-        """特定のモデルバージョンに基づいて予測を実行し、結果を保存する"""
+    def predict_for_model_version(self, model_version: ForecastModelVersion, year: int, month: int, half: str, force_update: bool = False) -> None:
+        """
+        特定のモデルバージョンに基づいて予測を実行し、結果を保存する
+        🔥 重要: 予測結果は実行時点より未来の日付でのみ保存される
+        """
         # モデルの係数を取得
         # coefs = ForecastModelCoef.objects.filter(
         #     variable__forecast_model_coefs__id__in=ForecastModelCoef.objects.filter(
@@ -109,7 +114,6 @@ class ObserveService:
         #     ).values_list('id', flat=True)
         # ).select_related('variable')
 
-        import logging
         logger = logging.getLogger(__name__)
         logger.info(
             "[PREDICT] START model_version_id=%s, model_kind_id=%s, target_month=%s, target=%s-%s-%s",
@@ -120,7 +124,6 @@ class ObserveService:
         )
 
         try:
-            # FIXME:: なぜか予測値が増えて一定の結果が出ないので直す
             feature_sets = ForecastModelFeatureSet.objects.filter(
                 model_kind=model_version.model_kind,
                 target_month=model_version.target_month
@@ -228,20 +231,73 @@ class ObserveService:
                 min_price = prediction - margin
                 max_price = prediction + margin
 
-            # 予測結果を保存
+            # 🔥 重要: 予測結果の未来日付保証チェック
+            current_date = date.today()
+            prediction_date = self._calculate_prediction_date(year, month, half)
+            
+            if prediction_date <= current_date:
+                logger.warning(
+                    "Skipping non-future prediction: prediction_date=%s <= current_date=%s", 
+                    prediction_date, current_date
+                )
+                return None
+            
+            # 予測結果を保存（未来日付のみ、またはforce_update=Trueの場合）
             try:
                 with transaction.atomic():
-                    report = ObserveReport.objects.create(
-                        target_year=year,
-                        target_month=month,
-                        target_half=half,
-                        predict_price=prediction,
-                        min_price=min_price,
-                        max_price=max_price,
-                        model_version=model_version
-                    )
-                logger.info(f"予測結果を保存しました: year={year}, month={month}, half={half}, prediction={prediction}")
-                return report
+                    if force_update:
+                        # force_update=Trueの場合は既存レコードを確認して更新または新規作成
+                        existing_report = ObserveReport.objects.filter(
+                            model_version=model_version,
+                            target_year=year,
+                            target_month=month,
+                            target_half=half
+                        ).first()
+                        
+                        if existing_report:
+                            # 既存レコードを更新
+                            existing_report.predict_price = prediction
+                            existing_report.min_price = min_price
+                            existing_report.max_price = max_price
+                            existing_report.updated_at = timezone.now()
+                            existing_report.save()
+                            logger.info(
+                                "予測結果を更新: year=%d, month=%d, half=%s, prediction=%.3f (report_id=%s)", 
+                                year, month, half, prediction, existing_report.id
+                            )
+                        else:
+                            # 新規作成
+                            report = ObserveReport.objects.create(
+                                target_year=year,
+                                target_month=month,
+                                target_half=half,
+                                predict_price=prediction,
+                                min_price=min_price,
+                                max_price=max_price,
+                                model_version=model_version
+                            )
+                            logger.info(
+                                "予測結果を新規作成: year=%d, month=%d, half=%s, prediction=%.3f (report_id=%s)", 
+                                year, month, half, prediction, report.id
+                            )
+                    else:
+                        # 従来の処理（新規作成のみ）
+                        report = ObserveReport.objects.create(
+                            target_year=year,
+                            target_month=month,
+                            target_half=half,
+                            predict_price=prediction,
+                            min_price=min_price,
+                            max_price=max_price,
+                            model_version=model_version
+                        )
+                        logger.info(
+                            "未来予測結果を保存: year=%d, month=%d, half=%s, prediction=%.3f, prediction_date=%s", 
+                            year, month, half, prediction, prediction_date
+                        )
+                    
+                # 🔥 重要: ObserveReportインスタンスではなく予測値（float）を返す
+                return float(prediction)
             except Exception as e:
                 logger.error(f"予測結果の保存に失敗しました: {str(e)}", exc_info=True)
                 return None
@@ -250,9 +306,22 @@ class ObserveService:
             return None
 
     def observe_latest_model(self, model_kind_id: int, target_year: int, target_month: int, target_half: str) -> Optional[ObserveReport]:
-        """最新のモデルバージョンで予測を実行"""
-        import logging
+        """
+        最新のモデルバージョンで予測を実行
+        🔥 重要: 予測対象が実行時点より未来であることを保証
+        """
         logger = logging.getLogger(__name__)
+        
+        # 🔥 重要: 予測対象が未来日付であることを事前チェック
+        current_date = date.today()
+        prediction_date = self._calculate_prediction_date(target_year, target_month, target_half)
+        
+        if prediction_date <= current_date:
+            logger.warning(
+                "Skipping non-future prediction in observe_latest_model: prediction_date=%s <= current_date=%s", 
+                prediction_date, current_date
+            )
+            return None
         
         try:
             latest_version = ForecastModelVersion.objects.filter(
@@ -261,7 +330,10 @@ class ObserveService:
                 is_active=True
             ).latest('created_at')
 
-            logger.info(f"最新のモデルバージョンを取得: id={latest_version.id}")
+            logger.info(
+                "最新モデルバージョンで未来予測実行: model_id=%s, target=%s-%02d %s, prediction_date=%s", 
+                latest_version.id, target_year, target_month, target_half, prediction_date
+            )
 
             # predict_for_model_versionの戻り値を直接使用
             report = self.predict_for_model_version(
@@ -269,10 +341,16 @@ class ObserveService:
             )
             
             if report:
-                logger.info(f"予測結果を保存しました: report_id={report.id}")
+                logger.info(
+                    "未来予測結果保存成功: report_id=%s, target=%s-%02d %s, prediction_date=%s", 
+                    report.id, target_year, target_month, target_half, prediction_date
+                )
                 return report
             else:
-                logger.warning("予測結果が生成されませんでした")
+                logger.warning(
+                    "未来予測結果が生成されませんでした: target=%s-%02d %s", 
+                    target_year, target_month, target_half
+                )
                 return None
 
         except ForecastModelVersion.DoesNotExist:
@@ -281,3 +359,23 @@ class ObserveService:
         except Exception as e:
             logger.error(f"予測実行中にエラーが発生: {str(e)}", exc_info=True)
             return None
+    
+    def _calculate_prediction_date(self, year: int, month: int, half: str) -> date:
+        """
+        予測対象の年月・前後半から代表日付を計算する
+        前半: 月の15日、後半: 月の末日を使用
+        """
+        try:
+            if half == "前半":
+                return date(year, month, 15)
+            else:  # "後半"
+                # 月末日を計算
+                if month == 12:
+                    next_month = date(year + 1, 1, 1)
+                else:
+                    next_month = date(year, month + 1, 1)
+                from datetime import timedelta
+                return next_month - timedelta(days=1)
+        except ValueError:
+            # 無効な日付の場合は現在日を返す（フォールバック）
+            return date.today()

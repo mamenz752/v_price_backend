@@ -58,8 +58,9 @@ delete_all_forecast_data.short_description = "すべての予測モデル関連�
 @admin.register(ForecastModelKind)
 class ForecastModelKindAdmin(admin.ModelAdmin):
     list_display = ('id', 'tag_name', 'vegetable', 'created_at', 'updated_at')
-    list_filter = ('vegetable', 'created_at')
+    list_filter = ('vegetable', 'created_at', 'updated_at')
     search_fields = ('tag_name', 'vegetable__name')
+    readonly_fields = ('id', 'created_at', 'updated_at')
     date_hierarchy = 'created_at'
     actions = [delete_all_forecast_data]
     
@@ -93,20 +94,23 @@ class ForecastModelFeatureSetAdmin(admin.ModelAdmin):
 @admin.register(ForecastModelVersion)
 class ForecastModelVersionAdmin(admin.ModelAdmin):
     list_display = ('id', 'target_month', 'is_active', 'model_kind', 'created_at', 'updated_at')
-    list_filter = ('target_month', 'is_active', 'model_kind', 'created_at')
+    list_filter = ('target_month', 'is_active', 'model_kind', 'created_at', 'updated_at')
     search_fields = ('model_kind__tag_name',)
+    readonly_fields = ('id', 'created_at', 'updated_at')
     date_hierarchy = 'created_at'
 
 @admin.register(ForecastModelCoef)
 class ForecastModelCoefAdmin(admin.ModelAdmin):
-    list_display = ('id', 'variable', 'coef', 'value_t', 'sign_p', 'standard_error', 'is_segment', 'created_at')
-    list_filter = ('is_segment', 'variable', 'created_at')
+    list_display = ('id', 'variable', 'coef', 'value_t', 'sign_p', 'standard_error', 'is_segment', 'created_at', 'updated_at')
+    list_filter = ('is_segment', 'variable', 'created_at', 'updated_at')
     search_fields = ('variable__name',)
+    readonly_fields = ('id', 'created_at', 'updated_at')
     date_hierarchy = 'created_at'
 
 @admin.register(ForecastModelEvaluation)
 class ForecastModelEvaluationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'multi_r', 'heavy_r2', 'adjusted_r2', 'rmse', 'sign_f', 'created_at')
-    list_filter = ('created_at',)
+    list_display = ('id', 'multi_r', 'heavy_r2', 'adjusted_r2', 'rmse', 'sign_f', 'created_at', 'updated_at')
+    list_filter = ('created_at', 'updated_at')
     search_fields = ('id',)
+    readonly_fields = ('id', 'created_at', 'updated_at')
     date_hierarchy = 'created_at'

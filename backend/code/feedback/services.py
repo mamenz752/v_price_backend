@@ -159,10 +159,10 @@ class FeedbackService:
                 }
 
             # R²値に基づいてステータスを判定
-            if metrics.heavy_r2 >= 0.8:
+            if metrics.adjusted_r2 >= 0.8:
                 status = '優良'
                 desc = 'モデルの予測精度は良好です。'
-            elif metrics.heavy_r2 >= 0.6:
+            elif metrics.adjusted_r2 >= 0.6:
                 status = '良好'
                 desc = 'モデルの予測精度は許容範囲内です。'
             else:
@@ -171,7 +171,7 @@ class FeedbackService:
 
             return {
                 'status': status,
-                'description': f'{month}月のモデル評価: {desc} (R² = {metrics.heavy_r2:.3f})'
+                'description': f'{month}月のモデル評価: {desc} (R² = {metrics.adjusted_r2:.3f})'
             }
         except ForecastModelEvaluation.DoesNotExist:
             return {

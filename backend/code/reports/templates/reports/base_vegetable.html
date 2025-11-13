@@ -324,14 +324,24 @@
                     ></canvas>
                 </div>
             </div>
-            <!-- TODO: ここにグラフソース元の表を作成 -->
-            <div></div>
-            <!-- <div class="button-group">
-                <button id="toggleHigh" class="button">高値</button>
-                <button id="toggleMedian" class="button">中値</button>
-                <button id="toggleLow" class="button">安値</button>
-                <button id="toggleRecent" class="button">直近価格</button>
-            </div> -->
+            <!-- 予測価格表 -->
+            <div class="container mt-4">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">期間</th>
+                                <th scope="col" class="text-end">価格（円/kg）</th>
+                                <th scope="col" class="text-end">最安値（円/kg）</th>
+                                <th scope="col" class="text-end">最高値（円/kg）</th>
+                            </tr>
+                        </thead>
+                        <tbody id="prediction-table-body">
+                            <!-- JavaScript で動的に生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </section>
         
         <section class="season-price-graph">
@@ -436,24 +446,56 @@
 <script>
     // Parse and prepare data
     const r_data = JSON.parse('{{ recently_price_data|default:"[]"|escapejs }}');
-    const p_data = JSON.parse('{{ predict_price_data|default:"[]"|escapejs }}');
+    const pred_data = JSON.parse('{{ prediction_data|default:"[]"|escapejs }}');
     const s_data = JSON.parse('{{ season_price_data|default:"[]"|escapejs }}');
     const y_data = JSON.parse('{{ year_price_data|default:"[]"|escapejs }}');
-    const d = JSON.parse('{{ last_year_diff|default:"[]"|escapejs }}');
-    console.log(d);
+    console.log('Prediction data:', pred_data);
 
-    // Render chart
+    // Render charts
     const r_ctx = document.getElementById('recently-price-graph-plot');
     const p_ctx = document.getElementById('predict-price-graph-plot');
     const s_ctx = document.getElementById('season-price-graph-plot');
     const y_ctx = document.getElementById('year-price-graph-plot');
     const r_config = renderRecentlyPriceGraphConfig(r_data);
-    const p_config = renderPredictPriceGraphConfig(p_data);
+    const p_config = renderPredictPriceGraphConfig(pred_data);
     const s_config = renderSeasonPriceGraphConfig(s_data);
     const y_config = renderYearPriceGraphConfig(y_data);
     new Chart(r_ctx, r_config);
     new Chart(p_ctx, p_config);
     new Chart(s_ctx, s_config);
     new Chart(y_ctx, y_config);
+
+    // Generate prediction table with historical and prediction data
+    const tableBody = document.getElementById('prediction-table-body');
+    if (pred_data && pred_data.length > 0) {
+        pred_data.forEach(item => {
+            const row = document.createElement('tr');
+            
+            if (item.data_type === 'historical') {
+                // 過去データの行
+                row.innerHTML = `
+                    <th scope="row" class="bg-light">${item.period} (実績)</th>
+                    <td class="text-end bg-light">${item.actual_price != null ? Math.round(item.actual_price).toLocaleString() : '-'}</td>
+                    <td class="text-end bg-light">-</td>
+                    <td class="text-end bg-light">-</td>
+                `;
+            } else if (item.data_type === 'prediction') {
+                // 予測データの行
+                row.innerHTML = `
+                    <th scope="row">${item.period} (予測)</th>
+                    <td class="text-end">${item.prediction_value != null ? Math.round(item.prediction_value).toLocaleString() : '-'}</td>
+                    <td class="text-end">${item.min_price != null ? Math.round(item.min_price).toLocaleString() : '-'}</td>
+                    <td class="text-end">${item.max_price != null ? Math.round(item.max_price).toLocaleString() : '-'}</td>
+                `;
+            }
+            tableBody.appendChild(row);
+        });
+    } else {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td colspan="4" class="text-center text-muted">データがありません</td>
+        `;
+        tableBody.appendChild(row);
+    }
 </script>
 {% endblock scripts %}

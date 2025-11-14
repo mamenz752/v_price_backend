@@ -1498,6 +1498,179 @@ class DataIngestor:
     新しいクラスへの橋渡しを行う
     """
     
+    def ingest_weather_file(self, filepath: str, target_date: datetime.date, half: str) -> dict:
+        """
+        Azure Storageから単一の気象ファイルを取得してIngestWeatherテーブルに保存
+        
+        Args:
+            filepath: Azure Storage内のファイルパス (例: weather/2025/11/2025_11_mid.csv)
+            target_date: 対象日付
+            half: 期間 ("前半" または "後半")
+            
+        Returns:
+            dict: {"success": bool, "records_created": int, "error": str}
+        """
+        logger.info(f"気象ファイル取り込み開始: {filepath}, half={half}")
+        
+        try:
+            # Azure Storageからファイル内容を取得
+            content = DataParser.get_file_content(filepath, is_azure_path=True)
+            
+            if not content:
+                return {
+                    "success": False,
+                    "records_created": 0,
+                    "error": f"File not found or empty: {filepath}"
+                }
+            
+            logger.info(f"Downloaded weather file: {filepath} ({len(content)} characters)")
+            
+            # CSVデータを解析
+            import csv
+            from io import StringIO
+            from django.utils import timezone
+            
+            csv_reader = csv.reader(StringIO(content))
+            headers = next(csv_reader)  # ヘッダー行をスキップ
+            
+            records_created = 0
+            
+            # 期間に基づいて日付範囲を決定
+            year = target_date.year
+            month = target_date.month
+            
+            if half == "前半":
+                start_day = 1
+                end_day = 15
+            else:  # "後半"
+                start_day = 16
+                # 月末日を計算
+                if month == 12:
+                    next_month = datetime.date(year + 1, 1, 1)
+                else:
+                    next_month = datetime.date(year, month + 1, 1)
+                end_day = (next_month - datetime.timedelta(days=1)).day
+            
+            logger.info(f"日付範囲: {year}/{month}/{start_day} - {year}/{month}/{end_day}")
+            
+            # CSVの各行を処理（地域別の気象データ）
+            with transaction.atomic():
+                for row in csv_reader:
+                    if len(row) < 6:  # 最低限必要なカラム数をチェック
+                        continue
+                    
+                    try:
+                        # CSVの構造に合わせて解析
+                        region_name = row[0].strip() if row[0] else None
+                        max_temp = float(row[1]) if row[1] and row[1] != '--' else None
+                        mean_temp = float(row[2]) if row[2] and row[2] != '--' else None
+                        min_temp = float(row[3]) if row[3] and row[3] != '--' else None
+                        precipitation = float(row[4]) if row[4] and row[4] != '--' else None
+                        sunshine_hours = float(row[5]) if row[5] and row[5] != '--' else None
+                        humidity = float(row[6]) if len(row) > 6 and row[6] and row[6] != '--' else None
+                        
+                        if not region_name:
+                            continue
+                        
+                        # 地域名から地域オブジェクトを取得
+                        try:
+                            region = Region.objects.get(name=region_name)
+                        except Region.DoesNotExist:
+                            logger.warning(f"Region not found: {region_name}, skipping row")
+                            continue
+                        
+                        # 期間内の各日付でIngestWeatherレコードを作成
+                        for day in range(start_day, end_day + 1):
+                            record_date = datetime.date(year, month, day)
+                            
+                            # 既存レコードをチェック（重複回避）
+                            existing = IngestWeather.objects.filter(
+                                region=region,
+                                target_date=record_date
+                            ).first()
+                            
+                            if existing:
+                                # 既存レコードを更新
+                                existing.max_temp = max_temp
+                                existing.mean_temp = mean_temp
+                                existing.min_temp = min_temp
+                                existing.sum_precipitation = precipitation
+                                existing.sunshine_duration = sunshine_hours
+                                existing.ave_humidity = humidity
+                                existing.save()
+                            else:
+                                # 新規レコードを作成
+                                IngestWeather.objects.create(
+                                    region=region,
+                                    target_date=record_date,
+                                    max_temp=max_temp,
+                                    mean_temp=mean_temp,
+                                    min_temp=min_temp,
+                                    sum_precipitation=precipitation,
+                                    sunshine_duration=sunshine_hours,
+                                    ave_humidity=humidity
+                                )
+                                records_created += 1
+                            
+                    except (ValueError, IndexError) as e:
+                        logger.warning(f"Failed to parse weather row {row}: {e}")
+                        continue
+            
+            logger.info(f"Weather file ingestion completed: {records_created} records created for {filepath}")
+            
+            return {
+                "success": True,
+                "records_created": records_created,
+                "error": None
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to ingest weather file {filepath}: {str(e)}", exc_info=True)
+            return {
+                "success": False,
+                "records_created": 0,
+                "error": str(e)
+            }
+
+    def ingest_price_file(self, filepath: str, target_date) -> Dict:
+        """
+        Azure Storageから価格ファイルをダウンロードしてIngestMarketに格納
+        observe/views.py のwebhook互換性のため
+        
+        Args:
+            filepath: ダウンロード対象のファイルパス (例: price/2025/11/2025-11-13.txt)
+            target_date: データの対象日付
+            
+        Returns:
+            Dict: {'success': bool, 'records_created': int, 'error': str}
+        """
+        logger.info(f"価格ファイル取り込み開始: {filepath}")
+        
+        try:
+            # 既存のprocess_price_file_from_azureメソッドを使用
+            success = self.process_price_file_from_azure(filepath)
+            
+            if success:
+                # 実際のレコード作成数は取得しづらいので概算で返す
+                return {
+                    'success': True,
+                    'records_created': 1,  # 成功時は1として扱う
+                    'error': None
+                }
+            else:
+                return {
+                    'success': False,
+                    'records_created': 0,
+                    'error': f"Failed to process file: {filepath}"
+                }
+        except Exception as e:
+            logger.error(f"価格ファイル取り込みエラー: {filepath}, {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'records_created': 0,
+                'error': str(e)
+            }
+    
     def process_price_file_from_azure(self, blob_path: str) -> bool:
         """
         Azuriteの価格ファイルを処理する

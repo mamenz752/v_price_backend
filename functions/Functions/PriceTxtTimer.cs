@@ -115,7 +115,7 @@ namespace Functions
 
             if (nowJst.Day >= 15)
             {
-                await notifier.NotifyDeadlinePriceUpdateAsync();
+                await notifier.NotifyDeadlineUpdateAsync();
                 _log.LogInformation("PriceTxtTimer: Deadline price update webhook notified.");
             }
         }

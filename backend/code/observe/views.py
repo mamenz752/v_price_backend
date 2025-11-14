@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.views.decorators.http import require_POST
@@ -16,7 +17,265 @@ import logging
 import datetime
 from typing import Optional, List
 
-# Create your views here.
+from ingest.services import DataIngestor
+from ingest.models import Vegetable, Region
+import logging
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.views.decorators.csrf import csrf_exempt
+import json
+
+logger = logging.getLogger(__name__)
+
+@csrf_exempt
+def DailyPriceWebhook(request):
+    # POST 以外は弾く
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST only")
+
+    # 簡易トークン認証（任意だけど付けておくと安心）
+    expected = getattr(settings, "WEBHOOK_TOKEN", None)
+    token = request.headers.get("X-Webhook-Token")
+    if expected and token != expected:
+        logger.warning("Webhook token mismatch: got=%s", token)
+        return HttpResponseForbidden("invalid token")
+    
+    raw = request.body.decode("utf-8", errors="replace")
+    logger.info("RAW BODY: %r", raw)
+
+    # JSON パース
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except Exception as e:
+        logger.error("Failed to parse webhook JSON: %s", e, exc_info=True)
+        return HttpResponseBadRequest("invalid json")
+
+    # createdAtからDateTimeオブジェクトを取得
+    try:
+        created_at_str = payload.get('createdAt')
+        if created_at_str:
+            created_at = datetime.datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+            # JSTに変換
+            jst_timezone = datetime.timezone(datetime.timedelta(hours=9))
+            created_at_jst = created_at.astimezone(jst_timezone)
+            target_date = created_at_jst.date()
+        else:
+            # createdAtがない場合は今日の日付を使用
+            target_date = datetime.date.today()
+    except Exception as e:
+        logger.warning("Failed to parse createdAt, using today's date: %s", e)
+        target_date = datetime.date.today()
+
+    logger.info(
+        "[Webhook] Daily price update received: eventType=%s, target_date=%s",
+        payload.get("eventType"),
+        target_date
+    )
+
+    try:
+        # DataIngestorを使用してAzure Storageから今日のデータを取得・格納
+        ingestor = DataIngestor()
+        
+        # 既存のAzuriteファイル構造に合わせてファイルパスを生成
+        # 例: price/2025/11/2025-11-13.txt
+        year = target_date.year
+        month = target_date.month
+        filename = f"price/{year}/{month:02d}/{target_date.strftime('%Y-%m-%d')}.txt"
+        
+        logger.info(f"Attempting to ingest price file: {filename}")
+        
+        # Azure Storageからファイルを取得してIngestMarketに格納
+        result = ingestor.ingest_price_file(filename, target_date)
+        
+        if result['success']:
+            logger.info(f"Successfully ingested {result['records_created']} price records for {target_date}")
+            return JsonResponse({
+                "status": "success",
+                "message": f"Ingested {result['records_created']} price records",
+                "target_date": str(target_date),
+                "filename": filename
+            })
+        else:
+            logger.error(f"Failed to ingest price file: {result['error']}")
+            return JsonResponse({
+                "status": "error",
+                "message": result['error'],
+                "target_date": str(target_date),
+                "filename": filename
+            }, status=500)
+            
+    except Exception as e:
+        logger.error(f"Exception during price data ingestion: {str(e)}", exc_info=True)
+        return JsonResponse({
+            "status": "error",
+            "message": f"Internal error: {str(e)})",
+            "target_date": str(target_date)
+        }, status=500)
+
+@csrf_exempt
+def DeadlineWebhook(request):
+    # POST 以外は弾く
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST only")
+
+    # 簡易トークン認証（任意だけど付けておくと安心）
+    expected = getattr(settings, "WEBHOOK_TOKEN", None)
+    token = request.headers.get("X-Webhook-Token")
+    if expected and token != expected:
+        logger.warning("Webhook token mismatch: got=%s", token)
+        return HttpResponseForbidden("invalid token")
+    
+    raw = request.body.decode("utf-8", errors="replace")
+    logger.info("RAW BODY: %r", raw)
+
+    # JSON パース
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except Exception as e:
+        logger.error("Failed to parse webhook JSON: %s", e, exc_info=True)
+        return HttpResponseBadRequest("invalid json")
+
+    # createdAtからDateTimeオブジェクトを取得
+    try:
+        created_at_str = payload.get('createdAt')
+        if created_at_str:
+            created_at = datetime.datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+            # JSTに変換
+            jst_timezone = datetime.timezone(datetime.timedelta(hours=9))
+            created_at_jst = created_at.astimezone(jst_timezone)
+            target_date = created_at_jst.date()
+        else:
+            # createdAtがない場合は今日の日付を使用
+            target_date = datetime.date.today()
+    except Exception as e:
+        logger.warning("Failed to parse createdAt, using today's date: %s", e)
+        target_date = datetime.date.today()
+
+    logger.info(
+        "[Webhook] deadline.weather.update received: eventType=%s, target_date=%s",
+        payload.get("eventType"),
+        target_date
+    )
+
+    try:
+        # DataIngestorを使用してAzure Storageから気象データを取得・格納
+        ingestor = DataIngestor()
+        
+        year = target_date.year
+        month = target_date.month
+        day = target_date.day
+        
+        # 受信日に基づいて処理対象を決定
+        if day == 1:
+            # 1日受信: 前月のlast.csvを処理（前月16日-月末の15日分）
+            if month == 1:
+                prev_year = year - 1
+                prev_month = 12
+            else:
+                prev_year = year
+                prev_month = month - 1
+            
+            filename = f"weather/{prev_year}/{prev_month:02d}/{prev_year}_{prev_month:02d}_last.csv"
+            half = "後半"
+            # 前月の日付を基準として使用
+            reference_date = datetime.date(prev_year, prev_month, 16)
+            
+            logger.info(f"Processing previous month's last half: {prev_year}/{prev_month} (16日-月末)")
+            
+        elif day == 16:
+            # 16日受信: 当月のmid.csvを処理（当月1-15日の15日分）
+            filename = f"weather/{year}/{month:02d}/{year}_{month:02d}_mid.csv"
+            half = "前半"
+            reference_date = datetime.date(year, month, 1)
+            
+            logger.info(f"Processing current month's first half: {year}/{month} (1-15日)")
+            
+        else:
+            # 1日と16日以外は処理しない
+            logger.warning(f"Webhook received on unexpected day: {day}. Expected day 1 or 16.")
+            return JsonResponse({
+                "status": "warning",
+                "message": f"Webhook received on unexpected day: {day}. No processing performed.",
+                "target_date": str(target_date)
+            })
+        
+        # ファイル処理
+        logger.info(f"Attempting to ingest weather file: {filename}")
+        result = ingestor.ingest_weather_file(filename, reference_date, half=half)
+        
+        if result['success']:
+            logger.info(f"Successfully ingested {result['records_created']} weather records from {filename}")
+            
+            # 気象データ処理完了後、データ整合性確認とモデル実行を開始
+            logger.info("Weather data ingestion completed. Starting data validation and model execution...")
+            
+            try:
+                # Step 1: 前日のIngestMarketデータ存在確認
+                jst_timezone = datetime.timezone(datetime.timedelta(hours=9))
+                yesterday_jst = (datetime.datetime.now(jst_timezone) - datetime.timedelta(days=1)).date()
+                
+                market_exists = IngestMarket.objects.filter(target_date=yesterday_jst).exists()
+                logger.info(f"IngestMarket data exists for {yesterday_jst}: {market_exists}")
+                
+                if not market_exists:
+                    logger.warning(f"IngestMarket data for {yesterday_jst} not found. Proceeding anyway...")
+                
+                # Step 2: IngestWeatherデータ存在確認（処理した期間）
+                weather_start_date = _calculate_period_start_date(reference_date.year, reference_date.month, half)
+                weather_end_date = _calculate_period_end_date(reference_date.year, reference_date.month, half)
+                
+                weather_count = IngestWeather.objects.filter(
+                    target_date__gte=weather_start_date,
+                    target_date__lte=weather_end_date
+                ).count()
+                
+                logger.info(f"IngestWeather data count for {weather_start_date} to {weather_end_date}: {weather_count}")
+                
+                if weather_count == 0:
+                    logger.warning("No IngestWeather data found for the processed period. Proceeding anyway...")
+                
+                # Step 3: モデル実行処理を開始
+                logger.info("Starting model execution process...")
+                model_execution_result = execute_model_processing(target_date, logger)
+                
+                return JsonResponse({
+                    "status": "success",
+                    "message": f"Ingested {result['records_created']} weather records and completed model execution",
+                    "target_date": str(target_date),
+                    "processed_file": filename,
+                    "period": half,
+                    "records_created": result['records_created'],
+                    "market_data_yesterday": market_exists,
+                    "weather_data_count": weather_count,
+                    "model_execution": model_execution_result
+                })
+                
+            except Exception as model_error:
+                logger.error(f"Error during model execution: {str(model_error)}", exc_info=True)
+                return JsonResponse({
+                    "status": "partial_success",
+                    "message": f"Weather data ingested successfully, but model execution failed",
+                    "target_date": str(target_date),
+                    "processed_file": filename,
+                    "records_created": result['records_created'],
+                    "model_error": str(model_error)
+                })
+        else:
+            logger.error(f"Failed to ingest weather file {filename}: {result['error']}")
+            return JsonResponse({
+                "status": "error",
+                "message": result['error'],
+                "target_date": str(target_date),
+                "filename": filename
+            }, status=500)
+            
+    except Exception as e:
+        logger.error(f"Exception during weather data ingestion: {str(e)}", exc_info=True)
+        return JsonResponse({
+            "status": "error",
+            "message": f"Internal error: {str(e)}",
+            "target_date": str(target_date)
+        }, status=500)
+
 @require_POST
 def run_model_by_webhook(request):
     """モデル実行ビュー（POSTのみ）
@@ -114,6 +373,96 @@ def run_model_by_webhook(request):
         messages.error(request, f'処理中にエラーが発生しました: {str(e)}')
     
     return redirect('feedback:index')
+
+
+def execute_model_processing(target_date: datetime.date, logger: logging.Logger) -> dict:
+    """
+    モデル実行処理を実行する（run_model_by_webhookの処理を流用）
+    
+    Args:
+        target_date: Webhook受信日
+        logger: ロガー
+        
+    Returns:
+        dict: 実行結果
+    """
+    try:
+        updated_year = target_date.year
+        updated_month = target_date.month
+        update_day = target_date.day
+        
+        # 日付に基づいて前半/後半を決定
+        if update_day <= 15:
+            updated_half = "前半"
+        else:
+            updated_half = "後半"
+        
+        logger.info(f"Model execution: {updated_year}年{updated_month}月{updated_half} (日付: {update_day})")
+        
+        # Step 1: 集計期間を計算（受信日の直前の半期のみ）
+        if updated_half == "前半":
+            # 前半（1日）受信時は前月後半を集計
+            if updated_month == 1:
+                aggregation_start_year = updated_year - 1
+                aggregation_start_month = 12
+            else:
+                aggregation_start_year = updated_year
+                aggregation_start_month = updated_month - 1
+            aggregation_start_half = "後半"
+            aggregation_end_year = aggregation_start_year
+            aggregation_end_month = aggregation_start_month
+            aggregation_end_half = "後半"
+        else:
+            # 後半（16日）受信時は当月前半を集計
+            aggregation_start_year = updated_year
+            aggregation_start_month = updated_month
+            aggregation_start_half = "前半"
+            aggregation_end_year = updated_year
+            aggregation_end_month = updated_month
+            aggregation_end_half = "前半"
+        
+        logger.info(f"集計期間: {aggregation_start_year}年{aggregation_start_month}月{aggregation_start_half} 〜 {aggregation_end_year}年{aggregation_end_month}月{aggregation_end_half}")
+        
+        # ComputeMarketとComputeWeatherデータを期間限定で集計・生成
+        compute_results = compute_data_for_aggregation_period(
+            aggregation_start_year, aggregation_start_month, aggregation_start_half,
+            aggregation_end_year, aggregation_end_month, aggregation_end_half, logger)
+        market_result = compute_results['market']
+        weather_result = compute_results['weather']
+        
+        # Step 2: 予測モデルのrunnerを実行
+        logger.info(f"予測モデル更新開始: {updated_year}年{updated_month}月{updated_half}以降を対象")
+        runner = ForecastOLSRunner(config=ForecastOLSConfig(region_name='広島'))
+        
+        updated_count = runner.update_predictions_for_period(
+            updated_year=updated_year,
+            updated_month=updated_month,
+            updated_half=updated_half,
+            variable_ids=None,  # 全変数を対象
+            create_if_missing=True,
+            look_ahead_years=1,  # 1年先まで予測
+            logger=logger
+        )
+        
+        logger.info(f"予測モデル更新完了: {updated_count} 件更新")
+        
+        return {
+            "success": True,
+            "market_created": market_result.created,
+            "market_updated": market_result.updated,
+            "weather_created": weather_result.created,
+            "weather_updated": weather_result.updated,
+            "predictions_updated": updated_count,
+            "aggregation_period": f"{aggregation_start_year}/{aggregation_start_month}{aggregation_start_half} 〜 {aggregation_end_year}/{aggregation_end_month}{aggregation_end_half}",
+            "prediction_period": f"{updated_year}年{updated_month}月{updated_half}以降"
+        }
+        
+    except Exception as e:
+        logger.error(f"モデル実行処理中にエラーが発生: {str(e)}", exc_info=True)
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 
 def compute_data_for_aggregation_period(

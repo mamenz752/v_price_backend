@@ -388,4 +388,7 @@ class ObserveService:
                 return next_month - timedelta(days=1)
         except ValueError:
             # 無効な日付の場合は現在日を返す（フォールバック）
-            return date.today()
+            return timezone.now().date()
+
+
+# DataIngestorクラスは ingest.services.DataIngestor に移動しました

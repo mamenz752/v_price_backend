@@ -103,7 +103,7 @@ namespace Functions
                 }
                 else
                 {
-                    var fileNameMid = $"test_{yearStr}_{monthStr}_mid.csv";
+                    var fileNameMid = $"{yearStr}_{monthStr}_mid.csv";
                     string localMidPath = Path.Combine(subdir, fileNameMid);
                     await File.WriteAllTextAsync(localMidPath, sbMid.ToString(), Encoding.UTF8);
 
@@ -114,7 +114,7 @@ namespace Functions
                 _log.LogInformation("WeatherCsvTimer: CSV files written");
 
                 var notifier = new WebhookNotifier(_http, _log);
-                await notifier.NotifyDeadlineWeatherUpdateAsync();
+                await notifier.NotifyDeadlineUpdateAsync();
                 _log.LogInformation("WeatherCsvTimer: Deadline weather update webhook notified.");
             }
             catch (Exception ex)

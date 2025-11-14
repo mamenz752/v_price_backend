@@ -29,8 +29,7 @@ namespace Functions
         // 例：1時間おき。必要に応じてCRONは変更してください（UTC）。
         [Function("WeatherCsvTimer")]
         public async Task RunAsync(
-            [TimerTrigger("0 */5 * * * *", UseMonitor = true)] TimerInfo _)
-        // [TimerTrigger("0 0 21 * * *", UseMonitor = true)] TimerInfo _)
+            [TimerTrigger("0 0 21 1,16 * *", UseMonitor = true)] TimerInfo _)
         {
             var jst = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
             var nowJst = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, jst);

@@ -189,7 +189,7 @@ class Command(BaseCommand):
         
         try:
             for category in categories:
-                local_dir = f"/data/{category}"
+                local_dir = f"/{settings.MEDIA_ROOT}/{category}"
                 if not os.path.exists(local_dir):
                     self.stdout.write(self.style.WARNING(f"ディレクトリが見つかりません: {local_dir}"))
                     continue

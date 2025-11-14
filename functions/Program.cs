@@ -7,7 +7,7 @@ var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
     .ConfigureServices(s =>
     {
-        // ここに DI を追加できます
+        s.AddSingleton<System.Net.Http.HttpClient>();
     })
     .Build();
 

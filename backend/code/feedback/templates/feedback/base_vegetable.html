@@ -140,10 +140,45 @@
         </div>
     </div>
 </div>
+
+<!-- test content -->
+     <div class="mt-3 mb-3">
+        <form method="post" action="{% url 'observe:run_model_by_webhook' %}" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="year" id="rm_year" value="">
+            <input type="hidden" name="month" id="rm_month" value="">
+            <!-- half が必要なら追加 -->
+            <input type="hidden" name="half" value="前半">
+            <button type="submit" class="btn btn-sm btn-outline-primary">
+                run_model_by_webhook を実行（現在の年/月）
+            </button>
+        </form>
+        <!-- 年月を入力したい場合の簡易フォーム（任意） -->
+        <form method="post" action="{% url 'observe:run_model_by_webhook' %}" class="d-inline ms-2">
+            {% csrf_token %}
+            <input type="number" name="year" min="2000" max="2100" placeholder="年" style="width:100px" required>
+            <input type="number" name="month" min="1" max="12" placeholder="月" style="width:80px" required>
+            <select name="half" class="form-select form-select-sm d-inline" style="width:120px">
+                <option value="前半">前半</option>
+                <option value="後半">後半</option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary">実行</button>
+        </form>
+    </div>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script>
+        // 自動で現在の年/月 を hidden フィールドに設定
+        (function(){
+            try {
+                const d = new Date();
+                document.getElementById('rm_year').value = d.getFullYear();
+                document.getElementById('rm_month').value = d.getMonth() + 1;
+            } catch (e) { /* noop */ }
+        })();
+    </script>
 <script>
     // 予測精度の推移グラフを描画
     document.addEventListener('DOMContentLoaded', function() {

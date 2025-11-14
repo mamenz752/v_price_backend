@@ -108,5 +108,61 @@
                 <div id="calendar"></div>
             </div>
         </section>
-    </div> 
+        
+        <!-- モデル実行ボタン -->
+        <div class="mt-4 p-3 bg-light rounded">
+            <h5>モデル実行テスト</h5>
+            <p class="small text-muted">指定された年月・日付に基づいてComputeMarket/ComputeWeatherを生成し、予測モデルを実行します</p>
+            
+            <!-- 現在日時での実行 -->
+            <div class="mb-3">
+                <form method="post" action="{% url 'observe:run_model_by_webhook' %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="year" id="current_year" value="">
+                    <input type="hidden" name="month" id="current_month" value="">
+                    <input type="hidden" name="day" id="current_day" value="">
+                    <button type="submit" class="btn btn-outline-primary">
+                        現在日時でモデル実行
+                    </button>
+                </form>
+            </div>
+            
+            <!-- 手動設定での実行 -->
+            <div>
+                <form method="post" action="{% url 'observe:run_model_by_webhook' %}" class="row g-2">
+                    {% csrf_token %}
+                    <div class="col-auto">
+                        <input type="number" name="year" min="2000" max="2100" placeholder="年" class="form-control" required>
+                    </div>
+                    <div class="col-auto">
+                        <input type="number" name="month" min="1" max="12" placeholder="月" class="form-control" required>
+                    </div>
+                    <div class="col-auto">
+                        <select name="day" class="form-select" required>
+                            <option value="">日付を選択</option>
+                            <option value="1">1日（前半）</option>
+                            <option value="16">16日（後半）</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary">実行</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 自動で現在の年/月/日 を hidden フィールドに設定
+        (function(){
+            try {
+                const d = new Date();
+                document.getElementById('current_year').value = d.getFullYear();
+                document.getElementById('current_month').value = d.getMonth() + 1;
+                document.getElementById('current_day').value = d.getDate();
+            } catch (e) { 
+                console.error('日付設定エラー:', e);
+            }
+        })();
+    </script>
 {% endblock content %}

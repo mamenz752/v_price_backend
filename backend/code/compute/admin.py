@@ -13,9 +13,11 @@ from .service import (
 # Register your models here.
 @admin.register(ComputeMarket)
 class ComputeMarketAdmin(admin.ModelAdmin):
-    list_display = ('id', 'vegetable', 'region', 'target_year', 'target_month', 'target_half', 'average_price', 'source_price', 'volume', 'trend')
-    list_filter = ('vegetable', 'region', 'target_year', 'target_month', 'target_half')
+    list_display = ('id', 'vegetable', 'region', 'target_year', 'target_month', 'target_half', 'average_price', 'source_price', 'volume', 'trend', 'created_at', 'updated_at')
+    list_filter = ('vegetable', 'region', 'target_year', 'target_month', 'target_half', 'created_at', 'updated_at')
     search_fields = ('vegetable__name', 'region__name')
+    readonly_fields = ('id', 'created_at', 'updated_at')
+    date_hierarchy = 'created_at'
     
     actions = ['compute_market_data', 'compute_all_data', 'reset_compute_data']
     
@@ -73,9 +75,11 @@ class ComputeMarketAdmin(admin.ModelAdmin):
 
 @admin.register(ComputeWeather)
 class ComputeWeatherAdmin(admin.ModelAdmin):
-    list_display = ('id', 'region', 'target_year', 'target_month', 'target_half', 'mean_temp', 'max_temp', 'min_temp', 'sum_precipitation', 'sunshine_duration', 'ave_humidity')
-    list_filter = ('region', 'target_year', 'target_month', 'target_half')
+    list_display = ('id', 'region', 'target_year', 'target_month', 'target_half', 'mean_temp', 'max_temp', 'min_temp', 'sum_precipitation', 'sunshine_duration', 'ave_humidity', 'created_at', 'updated_at')
+    list_filter = ('region', 'target_year', 'target_month', 'target_half', 'created_at', 'updated_at')
     search_fields = ('region__name',)
+    readonly_fields = ('id', 'created_at', 'updated_at')
+    date_hierarchy = 'created_at'
     
     actions = ['compute_weather_data', 'compute_all_data', 'reset_compute_data']
     

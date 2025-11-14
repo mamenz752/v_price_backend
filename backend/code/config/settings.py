@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-xa7o_f7r7bd@0+e%z)ls+hhxm(0g+j!raa=2#4i(#c@*0zqh5^
 DEBUG = True
 
 # データ関連のパス設定
-INGEST_ROOT = os.getenv("INGEST_ROOT", "/data")
+MEDIA_ROOT = os.getenv("SHARED_DATA_DIR", "/shared")
 # 新しいディレクトリ構造
 INGEST_PREFIX_PRICE = os.getenv("INGEST_PREFIX_PRICE", "price/")
 INGEST_PREFIX_WEATHER = os.getenv("INGEST_PREFIX_WEATHER", "weather/")
@@ -55,6 +55,8 @@ AZURE_ACCOUNT_KEY = os.getenv("AZURE_ACCOUNT_KEY", "")  # conn strを優先す�
 AZURE_SSL = False  # Azuriteはhttpで十分（httpsにすると繋がらないことが多い）
 AZURE_URL_EXPIRATION_SECS = 3600  # 署名URL有効時間（必要に応じて）
 AZURE_OVERWRITE_FILES = False
+
+WEBHOOK_TOKEN = os.getenv("WEBHOOK_TOKEN", "testtoken")
 
 
 ALLOWED_HOSTS = ["*"]
@@ -231,6 +233,31 @@ LOGGING = {
             'filename': os.path.join(BASE_DIR, 'logs', 'compute.log'),
             'formatter': 'verbose',
         },
+        'forecast_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'forecast.log'),
+            'formatter': 'verbose',
+        },
+        'observe_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'observe.log'),
+            'formatter': 'verbose',
+        },
+        'feedback_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'feedback.log'),
+            'formatter': 'verbose',
+        },
+        'reports_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'reports.log'),
+            'formatter': 'verbose',
+        },
+        'accounts_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'accounts.log'),
+            'formatter': 'verbose',
+        },
     },
     'loggers': {
         'django': {
@@ -248,18 +275,28 @@ LOGGING = {
             'level': LOGGING_LEVEL,
             'propagate': True,
         },
+        'forecast': {
+            'handlers': ['console', 'forecast_file'],
+            'level': LOGGING_LEVEL,
+            'propagate': True,
+        },
+        'observe': {
+            'handlers': ['console', 'observe_file'],
+            'level': LOGGING_LEVEL,
+            'propagate': True,
+        },
         'accounts': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'accounts_file'],
             'level': LOGGING_LEVEL,
             'propagate': True,
         },
         'feedback': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'feedback_file'],
             'level': LOGGING_LEVEL,
             'propagate': True,
         },
         'reports': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'reports_file'],
             'level': LOGGING_LEVEL,
             'propagate': True,
         },

@@ -9,10 +9,10 @@ import csv
 from io import StringIO
 import traceback
 import os
+import logging
 
-from .services import DataIngestor
-from .models import Vegetable, Region
 
+logger = logging.getLogger(__name__)
 
 def _container_client():
     conn_str = settings.AZURE_CONNECTION_STRING

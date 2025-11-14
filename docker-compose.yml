@@ -17,7 +17,9 @@ services:
     command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0"
     ports: ["10000:10000", "10001:10001", "10002:10002"]
     volumes:
-      - ./data:/azdata
+      - ./data:/shared:ro
+    environment:
+      AZURITE_ACCOUNTS: ${AZURE_ACCOUNTS}
 
   web:
     build: ./backend
@@ -44,10 +46,12 @@ services:
       PYTHONUNBUFFERED: 1
       DJANGO_LOG_LEVEL: INFO
       LOGGING_LEVEL: INFO
+      SHARED_DATA_DIR: /shared
+      WEBHOOK_TOKEN: ${WEBHOOK_TOKEN}
     ports: ["8000:8000"]
     volumes:
       - ./backend/code:/code
-      - ./data:/data:ro
+      - ./data:/shared
 
   django-migrate:
     build: ./backend  # 既存のwebサービスと同じDockerイメージを使用
@@ -79,4 +83,16 @@ services:
       FUNCTIONS_WORKER_RUNTIME: dotnet-isolated
       AZURE_FUNCTIONS_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:80
+      AUTH_PRICE_URL: ${AUTH_PRICE_URL}
+      DATA_PRICE_URL: ${DATA_PRICE_URL}
+      DATA_WEATHER_URL: ${DATA_WEATHER_URL}
+      TXT_PREFIX: ${TXT_PREFIX}
+      CSV_PREFIX: ${CSV_PREFIX}
+      CLIENT_ID: ${CLIENT_ID}
+      CLIENT_SECRET: ${CLIENT_SECRET}
+      SHARED_DATA_DIR: /shared
+      WEBHOOK_URL: ${WEBHOOK_URL}
+      WEBHOOK_TOKEN: ${WEBHOOK_TOKEN}
     ports: ["7071:80"]
+    volumes:
+      - ./data:/shared

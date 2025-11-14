@@ -92,111 +92,155 @@ function renderRecentlyPriceGraphConfig(twoWeekData) {
     return cfg;
 }
 
-// TODO: データつなぎこみ
-function renderPredictPriceGraphConfig(predictData) {
+// 過去2カ月の実際データと9カ月の予測データを表示
+function renderPredictPriceGraphConfig(combinedData) {
     if (typeof Chart === 'undefined') {
         console.warn('[predictPriceGraph] Chart.js not loaded.');
         return null;
     }
 
-    console.log('Predict Data:', predictData);
+    console.log('Combined Data:', combinedData);
 
     const labels = [];
-    const currentSeasonPrices = [];
-    const lastSeasonPrices = [];
-    const fiveYearAvgPrices = [];
+    const actualPrices = [];
+    const predictionValues = [];
+    const minPrices = [];
+    const maxPrices = [];
 
-    if (Array.isArray(predictData)) {
-        predictData.forEach(item => {
-            labels.push(item.target_date || '');
-            currentSeasonPrices.push(item.current_season_price != null ? item.current_season_price : null);
-            lastSeasonPrices.push(item.last_season_price != null ? item.last_season_price : null);
-            fiveYearAvgPrices.push(item.five_year_avg_price != null ? item.five_year_avg_price : null);
+    if (Array.isArray(combinedData)) {
+        combinedData.forEach(item => {
+            // ラベルは期間名を使用（例：2025年5月前半）
+            labels.push(item.period || '');
+            
+            if (item.data_type === 'historical') {
+                // 過去データ
+                actualPrices.push(item.actual_price != null ? item.actual_price : null);
+                predictionValues.push(null);
+                minPrices.push(null);
+                maxPrices.push(null);
+            } else if (item.data_type === 'prediction') {
+                // 予測データ
+                actualPrices.push(null);
+                predictionValues.push(item.prediction_value != null ? item.prediction_value : null);
+                minPrices.push(item.min_price != null ? item.min_price : null);
+                maxPrices.push(item.max_price != null ? item.max_price : null);
+            }
         });
     }
 
-    // データをそのまま使用（既にソート済み）
-    const chartLabels = labels;
-
-    console.log('Processed Data:', {
-        labels: chartLabels,
-        currentSeason: currentSeasonPrices,
-        lastSeason: lastSeasonPrices,
-        fiveYearAvg: fiveYearAvgPrices
+    console.log('Processed Combined Data:', {
+        labels: labels,
+        actual: actualPrices,
+        predictions: predictionValues,
+        minPrices: minPrices,
+        maxPrices: maxPrices
     });
 
     const cfg = {
+        type: 'line',
         data: {
-            labels: chartLabels,
+            labels: labels,
             datasets: [
                 {
-                    type: 'line',
-                    label: '今期価格（円/kg）',
-                    data: currentSeasonPrices,
-                    borderColor: 'rgb(255, 99, 132)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                    yAxisID: 'y_right',
-                    order: 1,
-                    spanGaps: true,
-                    tension: 0.2
+                    label: '実際価格',
+                    data: actualPrices,
+                    borderColor: '#FF6B6B',
+                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                    tension: 0.2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    borderWidth: 3,
+                    spanGaps: false
                 },
                 {
-                    type: 'line',
-                    label: '前年同期（円/kg）',
-                    data: lastSeasonPrices,
-                    borderColor: 'rgb(54, 162, 235)',
-                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                    yAxisID: 'y_right',
-                    order: 2,
-                    spanGaps: true,
-                    tension: 0.2
+                    label: '予測価格',
+                    data: predictionValues,
+                    borderColor: '#3F8A31',
+                    backgroundColor: 'rgba(63, 138, 49, 0.1)',
+                    tension: 0.2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    borderWidth: 2,
+                    spanGaps: false
                 },
                 {
-                    type: 'line',
-                    label: '過去5年平均（円/kg）',
-                    data: fiveYearAvgPrices,
-                    borderColor: 'rgb(75, 192, 192)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                    yAxisID: 'y_right',
-                    order: 3,
+                    label: '予測最安値',
+                    data: minPrices,
+                    borderColor: '#B7D430',
+                    backgroundColor: 'rgba(183, 212, 48, 0.1)',
+                    tension: 0.2,
                     borderDash: [5, 5],
-                    spanGaps: true,
-                    tension: 0.2
+                    pointRadius: 2,
+                    borderWidth: 2,
+                    spanGaps: false
+                },
+                {
+                    label: '予測最高値',
+                    data: maxPrices,
+                    borderColor: '#DEF164',
+                    backgroundColor: 'rgba(222, 241, 100, 0.1)',
+                    tension: 0.2,
+                    borderDash: [5, 5],
+                    pointRadius: 2,
+                    borderWidth: 2,
+                    spanGaps: false
                 }
             ]
         },
         options: {
-            // responsive: true,
-            // maintainAspectRatio: false,
+            responsive: true,
+            maintainAspectRatio: false,
             scales: {
                 x: {
-                    type: 'time',
-                    time: {
-                        unit: 'month',
-                        displayFormats: {
-                            month: 'M/d'
-                        }
+                    title: { 
+                        display: true, 
+                        text: '期間' 
                     },
-                    title: { display: true, text: '日付' },
                     ticks: {
-                        source: 'auto',
-                        autoSkip: false,
-                        maxRotation: 45
+                        maxRotation: 45,
+                        minRotation: 0
                     }
                 },
-                y_right: {
-                    type: 'linear',
-                    position: 'right',
-                    title: { display: true, text: '価格（円/kg）' },
-                    grid: { drawOnChartArea: false }
+                y: {
+                    title: { 
+                        display: true, 
+                        text: '価格（円）' 
+                    },
+                    grid: { 
+                        drawOnChartArea: true 
+                    }
                 }
             },
             elements: {
                 line: { 
-                    lineTension: 0
+                    tension: 0.2
                 }
             },
-            plugins: { legend: { position: 'top' } }
+            plugins: { 
+                legend: { 
+                    position: 'top',
+                    display: true
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        title: function(context) {
+                            return context[0].label;
+                        },
+                        label: function(context) {
+                            if (context.parsed.y !== null) {
+                                return `${context.dataset.label}: ${context.parsed.y.toLocaleString()}円`;
+                            }
+                            return null;
+                        }
+                    }
+                }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            }
         }
     };
     

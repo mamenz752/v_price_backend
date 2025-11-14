@@ -381,13 +381,11 @@ class IngestWeatherAdmin(AdminImportMixin, admin.ModelAdmin):
 @admin.register(Vegetable)
 class VegetableAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "code")
-    readonly_fields = ("id",)
     fields = ("name", "code")
 
 @admin.register(Region)
 class RegionAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "p_area_code", "market_code", "fuken_code", "station_code")
-    readonly_fields = ("id",)
     fields = ("name", "p_area_code", "market_code", "fuken_code", "station_code")
 
 # カスタム管理サイトを作成し、全データインポート用のビューを追加
@@ -414,7 +412,7 @@ class IngestAdminSite(admin.AdminSite):
             self.each_context(request),
             title="すべてのデータをインポート",
             settings={
-                'INGEST_ROOT': settings.INGEST_ROOT,
+                'MEDIA_ROOT': settings.MEDIA_ROOT,
                 'INGEST_PREFIX_PRICE': settings.INGEST_PREFIX_PRICE,
                 'INGEST_PREFIX_WEATHER': settings.INGEST_PREFIX_WEATHER
             }
@@ -448,7 +446,7 @@ class IngestAdminSite(admin.AdminSite):
             self.each_context(request),
             title="価格データのインポート",
             settings={
-                'INGEST_ROOT': settings.INGEST_ROOT,
+                'MEDIA_ROOT': settings.MEDIA_ROOT,
                 'INGEST_PREFIX_PRICE': settings.INGEST_PREFIX_PRICE
             }
         )
@@ -477,7 +475,7 @@ class IngestAdminSite(admin.AdminSite):
             self.each_context(request),
             title="天気データのインポート",
             settings={
-                'INGEST_ROOT': settings.INGEST_ROOT,
+                'MEDIA_ROOT': settings.MEDIA_ROOT,
                 'INGEST_PREFIX_WEATHER': settings.INGEST_PREFIX_WEATHER
             }
         )

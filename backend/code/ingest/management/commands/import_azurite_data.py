@@ -50,7 +50,7 @@ class Command(BaseCommand):
         self.stdout.write('価格データのインポートを実行中...')
         
         if price_dir is None:
-            price_dir = os.path.join(settings.INGEST_ROOT, settings.INGEST_PREFIX_PRICE)
+            price_dir = os.path.join(settings.MEDIA_ROOT, settings.INGEST_PREFIX_PRICE)
         
         results = FileProcessor.process_all_price_data(price_dir)
         
@@ -66,7 +66,7 @@ class Command(BaseCommand):
         self.stdout.write('天気データのインポートを実行中...')
         
         if weather_dir is None:
-            weather_dir = os.path.join(settings.INGEST_ROOT, settings.INGEST_PREFIX_WEATHER)
+            weather_dir = os.path.join(settings.MEDIA_ROOT, settings.INGEST_PREFIX_WEATHER)
         
         results = FileProcessor.process_all_weather_data(weather_dir)
         

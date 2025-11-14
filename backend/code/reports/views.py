@@ -6,7 +6,9 @@ from django.views import generic
 # from .models import CalcMarket
 from ingest.models import IngestMarket, Vegetable
 from compute.models import ComputeMarket
+from observe.models import ObserveReport
 from datetime import date, timedelta
+import json
 
 
 def _select_price(market: IngestMarket):
@@ -147,7 +149,7 @@ def _veg_context(veg_lookup_name: str, display_name: str):
 
     # season price data
     # FIXME: .today()に変更
-    today = date(2025, 7, 31)
+    today = date(2025, 10, 15)
     one_year_ago = today - timedelta(days=365)
     two_years_ago = today - timedelta(days=365*2)
     five_years_ago = today - timedelta(days=365*5)
@@ -335,6 +337,106 @@ def _veg_context(veg_lookup_name: str, display_name: str):
         latest_trend = "データなし"
         print("Debug: No latest date available")
 
+    # ObserveReportから予測価格データを取得（9カ月分）
+    predict_price = None
+    min_predict_price = None
+    max_predict_price = None
+    prediction_data = []
+    
+    if latest_date:
+        current_half = "前半" if latest_date.day <= 15 else "後半"
+        
+        # 現在の期間の予測価格
+        observe_report = ObserveReport.objects.filter(
+            model_version__model_kind__vegetable=vegetable,
+            target_year=latest_date.year,
+            target_month=latest_date.month,
+            target_half=current_half
+        ).order_by('-created_at').first()
+
+        print(f"Debug: Looking for ObserveReport with year={latest_date.year}, month={latest_date.month}, half={current_half}")
+        print(f"Debug: Found observe_report: {observe_report}")
+        
+        if observe_report:
+            predict_price = observe_report.predict_price
+            min_predict_price = observe_report.min_price
+            max_predict_price = observe_report.max_price
+            print(f"Debug: Found prediction data - predict: {predict_price}, min: {min_predict_price}, max: {max_predict_price}")
+        else:
+            print("Debug: No ObserveReport found")
+            
+        # 過去2カ月分の実際のデータ（ComputeMarket）を取得
+        historical_data = []
+        for i in range(-2, 0):  # 過去2カ月分
+            calc_month = current_month + i
+            calc_year = current_year
+            
+            if calc_month <= 0:
+                calc_year -= 1
+                calc_month += 12
+            
+            # 前半と後半の両方を取得
+            for half in ["前半", "後半"]:
+                compute_market = ComputeMarket.objects.filter(
+                    vegetable=vegetable,
+                    target_year=calc_year,
+                    target_month=calc_month,
+                    target_half=half
+                ).first()
+                
+                if compute_market:
+                    # 日付の作成（前半は1日、後半は16日）
+                    target_day = 1 if half == "前半" else 16
+                    target_date = date(calc_year, calc_month, target_day)
+                    
+                    # 価格は source_price を使用
+                    actual_price = compute_market.source_price
+                    
+                    historical_data.append({
+                        'target_date': target_date.strftime('%Y-%m-%d'),
+                        'actual_price': actual_price,
+                        'period': f"{calc_year}年{calc_month}月{half}",
+                        'data_type': 'historical'
+                    })
+        
+        # 9カ月分の予測データを取得
+        for i in range(9):  # 9カ月分
+            # 期間の計算
+            calc_month = current_month + i
+            calc_year = current_year
+            
+            if calc_month > 12:
+                calc_year += (calc_month - 1) // 12
+                calc_month = ((calc_month - 1) % 12) + 1
+            
+            # 前半と後半の両方を取得
+            for half in ["前半", "後半"]:
+                predict_report = ObserveReport.objects.filter(
+                    model_version__model_kind__vegetable=vegetable,
+                    target_year=calc_year,
+                    target_month=calc_month,
+                    target_half=half
+                ).order_by('-created_at').first()
+                
+                if predict_report:
+                    # 日付の作成（前半は1日、後半は16日）
+                    target_day = 1 if half == "前半" else 16
+                    target_date = date(calc_year, calc_month, target_day)
+                    
+                    prediction_data.append({
+                        'target_date': target_date.strftime('%Y-%m-%d'),
+                        'prediction_value': predict_report.predict_price,
+                        'min_price': predict_report.min_price,
+                        'max_price': predict_report.max_price,
+                        'period': f"{calc_year}年{calc_month}月{half}",
+                        'data_type': 'prediction'
+                    })
+        
+        # 過去データと予測データを結合（時系列順にソート）
+        combined_data = historical_data + prediction_data
+        combined_data.sort(key=lambda x: x['target_date'])
+                    
+        print(f"Debug: Found {len(historical_data)} historical records and {len(prediction_data)} prediction records")
 
     # デバッグ情報の出力
     print(f"Debug: Context Values:")
@@ -433,6 +535,11 @@ def _veg_context(veg_lookup_name: str, display_name: str):
         'volume': volume,
         'display_date': display_date,  # 表示用の日付文字列を追加
         'latest_trend': latest_trend,  # データがない場合は "データなし" が設定される
+        # 予測価格データ
+        'predict_price': int(round(predict_price)) if predict_price is not None else None,
+        'min_predict_price': int(round(min_predict_price)) if min_predict_price is not None else None,
+        'max_predict_price': int(round(max_predict_price)) if max_predict_price is not None else None,
+        'prediction_data': json.dumps(combined_data, cls=DjangoJSONEncoder),
         # 直近3カ月の統計データ
         'season_current_avg': int(round(season_current_avg)) if season_current_avg is not None else None,
         'season_current_min': int(round(season_current_min)) if season_current_min is not None else None,

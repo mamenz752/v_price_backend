@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Tuple, Set
 from django.conf import settings
+from django.db import transaction
 from azure.storage.blob import BlobServiceClient
 
 from .models import Vegetable, Region, IngestMarket, IngestWeather

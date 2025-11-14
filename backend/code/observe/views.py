@@ -27,6 +27,21 @@ import json
 logger = logging.getLogger(__name__)
 
 @csrf_exempt
+def test_webhook(request):
+    """テスト用のWebhookエンドポイント"""
+    logger.info(f"TestWebhook called: method={request.method}, path={request.path}")
+    logger.info(f"Headers: {dict(request.headers)}")
+    if request.body:
+        logger.info(f"Body: {request.body.decode('utf-8', errors='replace')}")
+    
+    return JsonResponse({
+        "status": "success",
+        "message": "Test webhook working",
+        "method": request.method,
+        "path": request.path
+    })
+
+@csrf_exempt
 def DailyPriceWebhook(request):
     # POST 以外は弾く
     if request.method != "POST":
@@ -113,19 +128,25 @@ def DailyPriceWebhook(request):
 
 @csrf_exempt
 def DeadlineWebhook(request):
+    # デバッグ用ログ
+    logger.info(f"DeadlineWebhook called: method={request.method}, path={request.path}")
+    
     # POST 以外は弾く
     if request.method != "POST":
+        logger.warning("DeadlineWebhook: Non-POST request received")
         return HttpResponseBadRequest("POST only")
 
     # 簡易トークン認証（任意だけど付けておくと安心）
     expected = getattr(settings, "WEBHOOK_TOKEN", None)
     token = request.headers.get("X-Webhook-Token")
+    logger.info(f"DeadlineWebhook: expected_token={expected}, received_token={token}")
+    
     if expected and token != expected:
         logger.warning("Webhook token mismatch: got=%s", token)
         return HttpResponseForbidden("invalid token")
     
     raw = request.body.decode("utf-8", errors="replace")
-    logger.info("RAW BODY: %r", raw)
+    logger.info("DeadlineWebhook RAW BODY: %r", raw)
 
     # JSON パース
     try:

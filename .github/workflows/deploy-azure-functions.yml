@@ -1,0 +1,39 @@
+# .github/workflows/deploy-azure-functions.yml
+name: Deploy Azure Functions (C#)
+
+on:
+  push:
+    branches: [ release ]
+    paths:
+      - 'functions/**'
+      - '.github/workflows/deploy-azure-functions.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ▼ C# Functions をビルドしたい場合（任意）
+      #   .csproj が functions_app にある想定
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'   # 使っている .NET のバージョンに合わせて
+
+      - name: Restore and Build (optional but recommended)
+        working-directory: ./functions
+        run: |
+          dotnet restore
+          dotnet build --configuration Release
+
+      # ▼ 発行プロファイルを使って Azure Functions にデプロイ
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}          # 関数アプリ名
+          package: 'functions'                                 # C# プロジェクトのフォルダ
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}

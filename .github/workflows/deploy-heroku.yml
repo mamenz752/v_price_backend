@@ -1,0 +1,48 @@
+name: Deploy Django to Heroku (Buildpack)
+
+on:
+  push:
+    branches: [ release ]
+    # Django 関連を触ったときだけデプロイしたい場合（なければ消してOK）
+    paths:
+      - 'backend/**'
+      - 'Procfile'
+      - 'requirements.txt'
+      - '.python-version'
+      - '.github/workflows/deploy-heroku.yml'
+  # 手動実行したいとき用（GitHub Actions 画面からポチッとできる）
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # （任意）CI でテストしたい場合
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies & run tests
+        working-directory: ./backend  # プロジェクトの場所に合わせて変更
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ../requirements.txt  # ルートにあるならこの形
+          python manage.py test
+
+      # Heroku へ git push（buildpack デプロイ）
+      - name: Deploy to Heroku (buildpack)
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+        run: |
+          # Heroku リモートを追加（毎回上書きでもOK）
+          git remote remove heroku 2>/dev/null || true
+          git remote add heroku https://heroku:${HEROKU_API_KEY}@git.heroku.com/${HEROKU_APP_NAME}.git
+
+          # release ブランチを Heroku に push（Heroku 側も release を使う前提）
+          git push heroku HEAD:release -f

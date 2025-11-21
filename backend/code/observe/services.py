@@ -55,49 +55,113 @@ class ObserveService:
 
         return periods
 
+    def _safe_mean(self, values: List) -> float:
+        """Noneを除外して安全に平均値を計算"""
+        valid_values = [v for v in values if v is not None]
+        if not valid_values:
+            return 0.0
+        return sum(valid_values) / len(valid_values)
+
     def _get_weather_data(self, periods: List[Dict]) -> Dict:
-        """気象データを取得する"""
+        """気象データを取得する（過去5年間の平均値）"""
+        logger = logging.getLogger(__name__)
         weather_data = {}
+        
         for period in periods:
             try:
-                weather = ComputeWeather.objects.get(
+                # 過去5年間のデータを取得
+                start_year = period['year'] - 4
+                end_year = period['year']
+                
+                weather_records = ComputeWeather.objects.filter(
                     region=self._region,
-                    target_year=period['year'],
+                    target_year__gte=start_year,
+                    target_year__lte=end_year,
                     target_month=period['month'],
                     target_half=period['half']
                 )
-                key = f"{period['year']}_{period['month']}_{period['half']}"
-                weather_data[key] = {
-                    'max_temp': weather.max_temp,
-                    'mean_temp': weather.mean_temp,
-                    'min_temp': weather.min_temp,
-                    'sum_precipitation': weather.sum_precipitation,
-                    'sunshine_duration': weather.sunshine_duration,
-                    'ave_humidity': weather.ave_humidity
+                
+                if not weather_records.exists():
+                    logger.warning(
+                        f"気象データ未検出: {start_year}年-{end_year}年 {period['month']}月{period['half']}"
+                    )
+                    continue
+                
+                # 過去5年間の平均値を計算
+                avg_data = {
+                    'max_temp': self._safe_mean([w.max_temp for w in weather_records]),
+                    'mean_temp': self._safe_mean([w.mean_temp for w in weather_records]),
+                    'min_temp': self._safe_mean([w.min_temp for w in weather_records]),
+                    'sum_precipitation': self._safe_mean([w.sum_precipitation for w in weather_records]),
+                    'sunshine_duration': self._safe_mean([w.sunshine_duration for w in weather_records]),
+                    'ave_humidity': self._safe_mean([w.ave_humidity for w in weather_records])
                 }
-            except ComputeWeather.DoesNotExist:
+                
+                key = f"{period['year']}_{period['month']}_{period['half']}"
+                weather_data[key] = avg_data
+                
+                logger.info(
+                    f"気象データ取得（{start_year}年-{end_year}年平均）: "
+                    f"{period['month']}月{period['half']} mean_temp={avg_data['mean_temp']:.2f}"
+                )
+                
+            except Exception as e:
+                logger = logging.getLogger(__name__)
+                logger.error(f"気象データ取得エラー: {str(e)}", exc_info=True)
                 continue
+        
         return weather_data
 
     def _get_market_data(self, periods: List[Dict], vegetable_id: int) -> Dict:
-        """市場データを取得する"""
+        """市場データを取得する（過去5年間の平均値）"""
+        logger = logging.getLogger(__name__)
         market_data = {}
+        
         for period in periods:
             try:
-                market = ComputeMarket.objects.get(
+                # 過去5年間のデータを取得
+                start_year = period['year'] - 4
+                end_year = period['year']
+                
+                market_records = ComputeMarket.objects.filter(
                     region=self._region,
                     vegetable_id=vegetable_id,
-                    target_year=period['year'],
+                    target_year__gte=start_year,
+                    target_year__lte=end_year,
                     target_month=period['month'],
                     target_half=period['half']
                 )
-                key = f"{period['year']}_{period['month']}_{period['half']}"
-                market_data[key] = {
-                    'average_price': market.average_price,
-                    'volume': market.volume
+                
+                if not market_records.exists():
+                    logger.warning(
+                        f"市場データ未検出: vegetable_id={vegetable_id}, "
+                        f"{start_year}年-{end_year}年 {period['month']}月{period['half']}"
+                    )
+                    continue
+                
+                # 過去5年間の平均値を計算
+                avg_data = {
+                    'average_price': self._safe_mean([m.average_price for m in market_records]),
+                    'volume': self._safe_mean([m.volume for m in market_records]),
+                    'prev_price': self._safe_mean([m.prev_price for m in market_records if m.prev_price]),
+                    'prev_volume': self._safe_mean([m.prev_volume for m in market_records if m.prev_volume]),
+                    'years_price': self._safe_mean([m.years_price for m in market_records if m.years_price]),
+                    'years_volume': self._safe_mean([m.years_volume for m in market_records if m.years_volume])
                 }
-            except ComputeMarket.DoesNotExist:
+                
+                key = f"{period['year']}_{period['month']}_{period['half']}"
+                market_data[key] = avg_data
+                
+                logger.info(
+                    f"市場データ取得（{start_year}年-{end_year}年平均）: "
+                    f"{period['month']}月{period['half']} avg_price={avg_data['average_price']:.2f}"
+                )
+                
+            except Exception as e:
+                logger = logging.getLogger(__name__)
+                logger.error(f"市場データ取得エラー: {str(e)}", exc_info=True)
                 continue
+        
         return market_data
 
     def predict_for_model_version(self, model_version: ForecastModelVersion, year: int, month: int, half: str, force_update: bool = False, allow_past_predictions: bool = False) -> Optional[float]:
@@ -156,9 +220,10 @@ class ObserveService:
             # 予測対象期間のデータを取得
             periods = self._get_target_period(year, month, half, max_coef_term)
             weather_data = self._get_weather_data(periods)
-            # market_data = self._get_market_data(periods, model_version.model_kind.vegetable.id)
+            market_data = self._get_market_data(periods, model_version.model_kind.vegetable.id)
 
             logger.info(f"気象データ: {weather_data}")
+            logger.info(f"市場データ: {market_data}")
         except Exception as e:
             logger.error(f"予測実行中にエラーが発生しました: {str(e)}", exc_info=True)
             return None

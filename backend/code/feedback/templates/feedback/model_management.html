@@ -40,6 +40,34 @@
                                             </label>
                                         </div>
                                         {% endfor %}
+                                        
+                                        <!-- ComputeMarketの追加フィールド -->
+                                        <hr class="my-3">
+                                        <h6 class="mb-2">市場データ変数</h6>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="compute_market_variables" value="prev_price" id="var_prev_price">
+                                            <label class="form-check-label" for="var_prev_price">
+                                                前回価格 (前半月の平均価格)
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="compute_market_variables" value="prev_volume" id="var_prev_volume">
+                                            <label class="form-check-label" for="var_prev_volume">
+                                                前回取引量 (前半月の取引量)
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="compute_market_variables" value="years_price" id="var_years_price">
+                                            <label class="form-check-label" for="var_years_price">
+                                                昨年同期価格 (昨年同月同半月の平均価格)
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="compute_market_variables" value="years_volume" id="var_years_volume">
+                                            <label class="form-check-label" for="var_years_volume">
+                                                昨年同期取引量 (昨年同月同半月の取引量)
+                                            </label>
+                                        </div>
                                     {% else %}
                                         <p class="text-muted mb-0">利用可能な説明変数がありません。(コンテキストあり: {{ model_variables|yesno:"Yes,No" }})</p>
                                     {% endif %}

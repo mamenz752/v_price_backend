@@ -23,6 +23,10 @@ class ComputeMarket(TimeStampedModel):
     source_price = models.FloatField(null=True, blank=True)
     volume = models.FloatField(null=True, blank=True)
     trend = models.CharField(max_length=10, null=True, blank=True)
+    prev_price = models.FloatField(null=True, blank=True)
+    prev_volume = models.FloatField(null=True, blank=True)
+    years_price = models.FloatField(null=True, blank=True)
+    years_volume = models.FloatField(null=True, blank=True)
     vegetable = models.ForeignKey(
         Vegetable,
         on_delete=models.CASCADE,

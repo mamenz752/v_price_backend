@@ -37,7 +37,7 @@ class ForecastOLSRunner:
         self.data_builder = data_builder or ForecastModelDataBuilder(region_name=config.region_name if config else '広島')
         self.cfg = config or ForecastOLSConfig()
 
-    def prepare_regression_data(self, model_name: str, target_month: int, vals: List[int]) -> tuple:
+    def prepare_regression_data(self, model_name: str, target_month: int, vals: List[int], compute_market_variables=None) -> tuple:
         """
         回帰分析用のデータを準備する
         複数年（2021-2025年）のデータを扱うように更新
@@ -45,7 +45,8 @@ class ForecastOLSRunner:
         Args:
             model_name (str): モデル名（例: "キャベツ春まき"）
             target_month (int): 対象月（1〜12）
-            variables (List[int]): 使用する変数のIDリスト
+            vals (List[int]): 使用する変数のIDリスト
+            compute_market_variables (List[str], optional): ComputeMarketの追加変数リスト
 
         Returns:
             tuple: (X, y, variable_list)
@@ -64,6 +65,65 @@ class ForecastOLSRunner:
         
         # 特徴量データフレームを準備
         X_df = forecast_dataset['X']
+        
+        # ComputeMarket変数を追加
+        if compute_market_variables:
+            logger = logging.getLogger(__name__)
+            logger.info(f"ComputeMarket変数を追加: {compute_market_variables}")
+            
+            # モデル種類を取得して野菜を特定
+            from forecast.models import ForecastModelKind
+            try:
+                model_kind = ForecastModelKind.objects.get(tag_name=model_name)
+                vegetable = model_kind.vegetable
+                
+                # ComputeMarketデータを取得して追加
+                from compute.models import ComputeMarket
+                
+                # X_dfの年月半月情報を取得
+                years = X_df['price_year'].unique() if 'price_year' in X_df.columns else [2024, 2025]
+                months = [target_month]
+                halves = ['前半', '後半']
+                
+                # 各ComputeMarket変数に対してデータを追加
+                for var_name in compute_market_variables:
+                    for year in years:
+                        for half in halves:
+                            # 該当するComputeMarketレコードを取得
+                            compute_market = ComputeMarket.objects.filter(
+                                vegetable=vegetable,
+                                target_year=year,
+                                target_month=target_month,
+                                target_half=half
+                            ).first()
+                            
+                            if compute_market:
+                                # 変数値を取得
+                                if var_name == 'prev_price':
+                                    value = getattr(compute_market, 'prev_price', None)
+                                elif var_name == 'prev_volume':
+                                    value = getattr(compute_market, 'prev_volume', None)
+                                elif var_name == 'years_price':
+                                    value = getattr(compute_market, 'years_price', None)
+                                elif var_name == 'years_volume':
+                                    value = getattr(compute_market, 'years_volume', None)
+                                else:
+                                    continue
+                                
+                                if value is not None:
+                                    # X_dfに新しい行を追加
+                                    new_row = {
+                                        'price_year': year,
+                                        'price_half': half,
+                                        'variable': var_name,
+                                        'previous_term': 0,  # ComputeMarket変数は同期間なので0
+                                        'value': value
+                                    }
+                                    X_df = pd.concat([X_df, pd.DataFrame([new_row])], ignore_index=True)
+                                    logger.info(f"ComputeMarket変数を追加: {var_name}={value} for {year}-{target_month} {half}")
+                
+            except Exception as e:
+                logger.warning(f"ComputeMarket変数の追加中にエラー: {str(e)}")
         
         logger = logging.getLogger(__name__)
         logger.info(f"特徴量データフレーム準備: X_df shape={X_df.shape}")
@@ -195,12 +255,21 @@ class ForecastOLSRunner:
             except Exception as e:
                 print(f"変数リスト作成エラー（{col}）: {str(e)}")
                 continue
+        
+        # ComputeMarket変数を変数リストに追加
+        if compute_market_variables:
+            for var_name in compute_market_variables:
+                if f"{var_name}_0" in X.columns:  # previous_term=0で追加されている
+                    variable_list.append({
+                        'name': var_name,
+                        'previous_term': 0
+                    })
 
         print(f"最終データセット - X: {X.shape}, y: {len(y)}, variables: {variable_list}")
 
         return X, y, variable_list
 
-    def fit_and_persist(self, model_name: str, target_month: int, vals: List[int]) -> Optional[ForecastModelVersion]:
+    def fit_and_persist(self, model_name: str, target_month: int, vals: List[int], compute_market_variables=None) -> Optional[ForecastModelVersion]:
         """
         モデルの学習と結果の永続化を行う
         
@@ -208,12 +277,13 @@ class ForecastOLSRunner:
             model_name (str): モデル名（例: "キャベツ春まき"）
             target_month (int): 対象月（1〜12）
             vals (List[int]): 使用する変数のIDリスト
+            compute_market_variables (List[str], optional): ComputeMarketの追加変数リスト
             
         Returns:
             Optional[ForecastModelVersion]: 作成されたモデルバージョン
         """
         logger = logging.getLogger(__name__)
-        logger.info(f"fit_and_persist開始: モデル={model_name}, 月={target_month}, 変数={vals}")
+        logger.info(f"fit_and_persist開始: モデル={model_name}, 月={target_month}, 変数={vals}, 市場変数={compute_market_variables}")
 
         # 年が指定されていない場合は現在の年を使用
         # if year is None:
@@ -231,7 +301,12 @@ class ForecastOLSRunner:
 
         try:
             # prepare_regression_data のシグネチャを変えたため、キーワードで渡す
-            X, y, variable_list = self.prepare_regression_data(model_name, target_month, vals=vals)
+            X, y, variable_list = self.prepare_regression_data(
+                model_name, 
+                target_month, 
+                vals=vals,
+                compute_market_variables=compute_market_variables
+            )
             logger.info(f"データ準備完了: X shape={X.shape}, y length={len(y)}")
             logger.info(f"データ準備完了: X shape={X.shape}, y length={len(y)}")
         except Exception as e:
@@ -362,7 +437,17 @@ class ForecastOLSRunner:
                 var_name = var_info['name']
                 prev_term = var_info['previous_term']
                 try:
-                    var_obj = ForecastModelVariable.objects.get(name=var_name, previous_term=prev_term)
+                    # ComputeMarket変数の場合は動的に作成
+                    if var_name in ['prev_price', 'prev_volume', 'years_price', 'years_volume']:
+                        var_obj, created = ForecastModelVariable.objects.get_or_create(
+                            name=var_name,
+                            previous_term=prev_term
+                        )
+                        if created:
+                            logger.info(f"ComputeMarket変数を新規作成: {var_name} (previous_term={prev_term})")
+                    else:
+                        var_obj = ForecastModelVariable.objects.get(name=var_name, previous_term=prev_term)
+                    
                     variable_dict[f"{var_name}_{prev_term}"] = var_obj
                 except ForecastModelVariable.DoesNotExist:
                     print(f"警告: 変数 '{var_name}'（previous_term={prev_term}）が見つかりませんでした。")

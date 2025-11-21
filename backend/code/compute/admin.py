@@ -13,8 +13,8 @@ from .service import (
 # Register your models here.
 @admin.register(ComputeMarket)
 class ComputeMarketAdmin(admin.ModelAdmin):
-    list_display = ('id', 'vegetable', 'region', 'target_year', 'target_month', 'target_half', 'average_price', 'source_price', 'volume', 'trend', 'created_at', 'updated_at')
-    list_filter = ('vegetable', 'region', 'target_year', 'target_month', 'target_half', 'created_at', 'updated_at')
+    list_display = ('id', 'vegetable', 'region', 'target_year', 'target_month', 'target_half', 'average_price', 'source_price', 'volume', 'trend', 'prev_price', 'prev_volume', 'years_price', 'years_volume', 'created_at', 'updated_at')
+    list_filter = ('vegetable', 'region', 'target_year', 'target_month', 'target_half', 'trend', 'created_at', 'updated_at')
     search_fields = ('vegetable__name', 'region__name')
     readonly_fields = ('id', 'created_at', 'updated_at')
     date_hierarchy = 'created_at'

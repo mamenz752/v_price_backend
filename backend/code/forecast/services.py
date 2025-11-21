@@ -173,7 +173,7 @@ class ForecastModelService:
             return None
 
     @transaction.atomic
-    def run_model(self, tag_name: str, target_month: int, variables) -> bool:
+    def run_model(self, tag_name: str, target_month: int, variables, compute_market_variables=None) -> bool:
         """
         指定されたモデルを実行する
 
@@ -181,6 +181,7 @@ class ForecastModelService:
             tag_name: モデルの種類を示すタグ名
             target_month: 対象月（1-12）
             variables: 使用する変数のクエリセット
+            compute_market_variables: ComputeMarketの追加変数のリスト (prev_price, prev_volume, years_price, years_volume)
 
         Returns:
             bool: モデルの実行が成功したかどうか
@@ -194,9 +195,10 @@ class ForecastModelService:
             model_kind = ForecastModelKind.objects.get(tag_name=tag_name)
 
             # 変数を取得
-            logger.info(f"変数の取得: {variables}")
-            # variables = ForecastModelVariable.objects.filter(name__in=variable_names)
-            if not variables:
+            logger.info(f"通常変数の取得: {variables}")
+            logger.info(f"ComputeMarket変数の取得: {compute_market_variables}")
+            
+            if not variables and not compute_market_variables:
                 logger.error("指定された変数が見つかりません")
                 return False
 
@@ -208,13 +210,13 @@ class ForecastModelService:
             runner = ForecastOLSRunner(config=config)
 
             try:
-                # variable_names = [var.name for var in variables]
-                logger.info(f"モデル実行開始: {model_kind.tag_name}, 月={target_month}, 変数={variables}")
+                logger.info(f"モデル実行開始: {model_kind.tag_name}, 月={target_month}, 通常変数={variables}, 市場変数={compute_market_variables}")
 
                 model_version = runner.fit_and_persist(
                     model_kind.tag_name,
                     target_month,
-                    variables
+                    variables,
+                    compute_market_variables=compute_market_variables
                 )
 
                 if model_version:

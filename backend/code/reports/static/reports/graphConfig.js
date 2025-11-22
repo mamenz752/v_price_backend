@@ -102,8 +102,7 @@ function renderPredictPriceGraphConfig(combinedData) {
     console.log('Combined Data:', combinedData);
 
     const labels = [];
-    const actualPrices = [];
-    const predictionValues = [];
+    const allPrices = [];  // 実際価格と予測価格を統合
     const minPrices = [];
     const maxPrices = [];
 
@@ -114,14 +113,12 @@ function renderPredictPriceGraphConfig(combinedData) {
             
             if (item.data_type === 'historical') {
                 // 過去データ
-                actualPrices.push(item.actual_price != null ? item.actual_price : null);
-                predictionValues.push(null);
+                allPrices.push(item.actual_price != null ? item.actual_price : null);
                 minPrices.push(null);
                 maxPrices.push(null);
             } else if (item.data_type === 'prediction') {
                 // 予測データ
-                actualPrices.push(null);
-                predictionValues.push(item.prediction_value != null ? item.prediction_value : null);
+                allPrices.push(item.prediction_value != null ? item.prediction_value : null);
                 minPrices.push(item.min_price != null ? item.min_price : null);
                 maxPrices.push(item.max_price != null ? item.max_price : null);
             }
@@ -130,8 +127,7 @@ function renderPredictPriceGraphConfig(combinedData) {
 
     console.log('Processed Combined Data:', {
         labels: labels,
-        actual: actualPrices,
-        predictions: predictionValues,
+        prices: allPrices,
         minPrices: minPrices,
         maxPrices: maxPrices
     });
@@ -142,25 +138,13 @@ function renderPredictPriceGraphConfig(combinedData) {
             labels: labels,
             datasets: [
                 {
-                    label: '実際価格',
-                    data: actualPrices,
-                    borderColor: '#FF6B6B',
-                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
-                    tension: 0.2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    borderWidth: 3,
-                    spanGaps: false
-                },
-                {
-                    label: '予測価格',
-                    data: predictionValues,
+                    label: '価格（実際・予測）',
+                    data: allPrices,
                     borderColor: '#3F8A31',
                     backgroundColor: 'rgba(63, 138, 49, 0.1)',
-                    tension: 0.2,
-                    pointRadius: 4,
+                    pointRadius: 5,
                     pointHoverRadius: 6,
-                    borderWidth: 2,
+                    borderWidth: 4,
                     spanGaps: false
                 },
                 {
@@ -168,10 +152,8 @@ function renderPredictPriceGraphConfig(combinedData) {
                     data: minPrices,
                     borderColor: '#B7D430',
                     backgroundColor: 'rgba(183, 212, 48, 0.1)',
-                    tension: 0.2,
                     borderDash: [5, 5],
-                    pointRadius: 2,
-                    borderWidth: 2,
+                    pointRadius: 3,
                     spanGaps: false
                 },
                 {
@@ -179,17 +161,15 @@ function renderPredictPriceGraphConfig(combinedData) {
                     data: maxPrices,
                     borderColor: '#DEF164',
                     backgroundColor: 'rgba(222, 241, 100, 0.1)',
-                    tension: 0.2,
                     borderDash: [5, 5],
-                    pointRadius: 2,
-                    borderWidth: 2,
+                    pointRadius: 3,
                     spanGaps: false
                 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            // responsive: true,
+            // maintainAspectRatio: false,
             scales: {
                 x: {
                     title: { 
@@ -213,7 +193,7 @@ function renderPredictPriceGraphConfig(combinedData) {
             },
             elements: {
                 line: { 
-                    tension: 0.2
+                    tension: 0
                 }
             },
             plugins: { 
@@ -237,10 +217,10 @@ function renderPredictPriceGraphConfig(combinedData) {
                     }
                 }
             },
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            }
+            // interaction: {
+            //     mode: 'index',
+            //     intersect: false,
+            // }
         }
     };
     

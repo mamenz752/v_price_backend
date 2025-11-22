@@ -141,7 +141,7 @@ class ObserveService:
                 
                 # 過去5年間の平均値を計算
                 avg_data = {
-                    'average_price': self._safe_mean([m.average_price for m in market_records]),
+                    'average_price': self._safe_mean([m.source_price for m in market_records]),
                     'volume': self._safe_mean([m.volume for m in market_records]),
                     'prev_price': self._safe_mean([m.prev_price for m in market_records if m.prev_price]),
                     'prev_volume': self._safe_mean([m.prev_volume for m in market_records if m.prev_volume]),

@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
-from azure.storage.blob import BlobServiceClient
+from config.storage.azure_blob import get_blob_service_client
 from django.conf import settings
 
 # Azurite接続
 print("Azurite接続開始")
 try:
-    bsc = BlobServiceClient.from_connection_string(settings.AZURE_CONNECTION_STRING)
-    container = bsc.get_container_client(settings.AZURE_CONTAINER)
+    container = get_blob_service_client()
     print(f"接続成功: {settings.AZURE_CONTAINER}")
 except Exception as e:
     print(f"接続エラー: {str(e)}")

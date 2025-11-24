@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Tuple, Set
 from django.conf import settings
 from django.db import transaction
-from azure.storage.blob import BlobServiceClient
+from config.storage.azure_blob import get_blob_service_client
 
 from .models import Vegetable, Region, IngestMarket, IngestWeather
 
@@ -20,20 +20,20 @@ class DataParser:
     Azuriteのファイルやローカルファイルからデータを解析する機能を提供
     """
     
-    @staticmethod
-    def get_blob_client():
-        """
-        Azure BlobServiceClientを取得する
-        """
-        try:
-            conn_str = settings.AZURE_CONNECTION_STRING
-            container_name = settings.AZURE_CONTAINER
-            bsc = BlobServiceClient.from_connection_string(conn_str)
-            container = bsc.get_container_client(container_name)
-            return container
-        except Exception as e:
-            logger.error(f"Azure Blob接続エラー: {str(e)}")
-            return None
+    # @staticmethod
+    # def get_blob_client():
+    #     """
+    #     Azure BlobServiceClientを取得する
+    #     """
+    #     try:
+    #         conn_str = settings.AZURE_CONNECTION_STRING
+    #         container_name = settings.AZURE_CONTAINER
+    #         bsc = BlobServiceClient.from_connection_string(conn_str)
+    #         container = bsc.get_container_client(container_name)
+    #         return container
+    #     except Exception as e:
+    #         logger.error(f"Azure Blob接続エラー: {str(e)}")
+    #         return None
     
     @staticmethod
     def parse_date_from_filename(filename: str) -> Optional[datetime.date]:
@@ -106,7 +106,7 @@ class DataParser:
         # Azure Blobからの読み込み
         if is_azure_path:
             try:
-                container = DataParser.get_blob_client()
+                container = get_blob_service_client()
                 if not container:
                     logger.error("Azure Blob接続に失敗しました")
                     return None
@@ -1212,7 +1212,7 @@ class FileProcessor:
             logger.info("Azuriteからの天気データインポートを開始します")
             
             # Azure Blobクライアント取得
-            container = DataParser.get_blob_client()
+            container = get_blob_service_client()
             if container:
                 # 全ての地域を取得
                 regions = Region.objects.all()
@@ -1357,7 +1357,7 @@ class FileProcessor:
             logger.info("Azuriteからの価格データインポートを開始します")
             
             # Azure Blobクライアント取得
-            container = DataParser.get_blob_client()
+            container = get_blob_service_client()
             if container:
                 # 全ての野菜を取得
                 vegetables = Vegetable.objects.all()

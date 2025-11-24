@@ -8,7 +8,7 @@ import django
 
 # /code がワーキングディレクトリ
 sys.path.insert(0, '/code')
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings_local')
 django.setup()
 
 from forecast.service.run_ols import ForecastOLSRunner, ForecastOLSConfig

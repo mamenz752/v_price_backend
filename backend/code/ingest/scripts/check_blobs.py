@@ -1,23 +1,13 @@
 """
 Azure Blob内のファイル一覧を確認するスクリプト
 """
-from azure.storage.blob import BlobServiceClient
+from config.storage.azure_blob import get_blob_service_client
 from django.conf import settings
 
 def list_blobs():
     try:
-        # Azure Blobに接続
-        conn_str = settings.AZURE_CONNECTION_STRING
         container_name = settings.AZURE_CONTAINER
-        print(f"接続文字列: {conn_str}")
-        print(f"コンテナ名: {container_name}")
-        
-        # BlobServiceClientを作成
-        blob_service_client = BlobServiceClient.from_connection_string(conn_str)
-        
-        # コンテナを取得
-        container_client = blob_service_client.get_container_client(container_name)
-        
+        container_client = get_blob_service_client()
         # コンテナが存在するか確認
         try:
             container_props = container_client.get_container_properties()

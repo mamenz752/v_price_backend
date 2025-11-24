@@ -5,7 +5,7 @@ import re
 from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from azure.storage.blob import BlobServiceClient
+from config.storage.azure_blob import get_blob_service_client
 
 
 class Command(BaseCommand):
@@ -66,8 +66,7 @@ class Command(BaseCommand):
             return
 
         try:
-            bsc = BlobServiceClient.from_connection_string(settings.AZURE_CONNECTION_STRING)
-            container = bsc.get_container_client(settings.AZURE_CONTAINER)
+            container = get_blob_service_client()
         except Exception as e:
             self.stderr.write(self.style.ERROR(f"Azurite connection error: {str(e)}"))
             return

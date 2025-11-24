@@ -14,7 +14,7 @@ def get_blob_service_client():
     if mode == "connection_string":
         conn_str = os.getenv("AZURE_CONNECTION_STRING")
         return ContainerClient.from_connection_string(conn_str, container_name)
-    elif mode == "SAS":
+    elif mode == "sas":
         account_url = os.getenv('AZURE_STORAGE_ACCOUNT_URL')
         sas_token = os.getenv('AZURE_STORAGE_SAS_TOKEN')
         blob_service = BlobServiceClient(

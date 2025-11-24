@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-xa7o_f7r7bd@0+e%z)ls+hhxm(0g+j!raa=2#4i(#c@*0zqh5^'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 # データ関連のパス設定
 MEDIA_ROOT = os.getenv("SHARED_DATA_DIR", "/shared")
@@ -61,6 +61,9 @@ ALLOWED_HOSTS = ["*"]
 
 # 環境設定
 DJANGO_ENV = os.environ.get("DJANGO_ENV", "production")
+
+AZURE_STORAGE_ACCOUNT_URL = os.getenv("AZURE_STORAGE_ACCOUNT_URL", "")
+AZURE_STORAGE_SAS_TOKEN = os.getenv("AZURE_STORAGE_SAS_TOKEN", "")
 
 # Application definition
 

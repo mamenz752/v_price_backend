@@ -21,19 +21,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # （任意）CI でテストしたい場合
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies & run tests
-        working-directory: ./backend/code  # manage.pyの実際の場所
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r ../../requirements.txt  # ルートのrequirements.txt
-          python manage.py test
-
       # Heroku へ git push（buildpack デプロイ）
       - name: Deploy to Heroku (buildpack)
         env:

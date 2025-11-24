@@ -49,6 +49,7 @@ services:
       SHARED_DATA_DIR: /shared
       WEBHOOK_TOKEN: ${WEBHOOK_TOKEN}
       DJANGO_ENV: development
+      DJANGO_SETTINGS_MODULE: config.settings.settings_dev
     ports: ["8000:8000"]
     volumes:
       - ./backend/code:/code

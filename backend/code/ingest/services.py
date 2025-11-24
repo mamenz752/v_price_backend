@@ -2,10 +2,9 @@ import csv
 import os
 import datetime
 import logging
-import glob
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any, Tuple, Set
+from typing import Dict, List, Optional, Union
 from django.conf import settings
 from django.db import transaction
 from config.storage.azure_blob import get_blob_service_client
@@ -20,21 +19,6 @@ class DataParser:
     Azuriteのファイルやローカルファイルからデータを解析する機能を提供
     """
     
-    # @staticmethod
-    # def get_blob_client():
-    #     """
-    #     Azure BlobServiceClientを取得する
-    #     """
-    #     try:
-    #         conn_str = settings.AZURE_CONNECTION_STRING
-    #         container_name = settings.AZURE_CONTAINER
-    #         bsc = BlobServiceClient.from_connection_string(conn_str)
-    #         container = bsc.get_container_client(container_name)
-    #         return container
-    #     except Exception as e:
-    #         logger.error(f"Azure Blob接続エラー: {str(e)}")
-    #         return None
-    
     @staticmethod
     def parse_date_from_filename(filename: str) -> Optional[datetime.date]:
         """
@@ -44,6 +28,7 @@ class DataParser:
         - 2022-01-05.txt -> 2022-01-05
         - weather/2022/01/2022_01_mid.csv -> 2022-01-15
         """
+
         try:
             # ファイル名からファイル拡張子を除いた部分を取得
             base_name = os.path.basename(filename)
@@ -1263,7 +1248,6 @@ class FileProcessor:
                                             logger.info(f"Azureファイル処理成功: {csv_file}, 保存件数: {saved_count}")
                                     finally:
                                         # 一時ファイル削除
-                                        import os
                                         if os.path.exists(temp_path):
                                             os.unlink(temp_path)
                             except Exception as e:
@@ -1529,7 +1513,6 @@ class DataIngestor:
             # CSVデータを解析
             import csv
             from io import StringIO
-            from django.utils import timezone
             
             csv_reader = csv.reader(StringIO(content))
             headers = next(csv_reader)  # ヘッダー行をスキップ

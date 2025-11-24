@@ -1,2 +1,2 @@
-release: cd backend && python manage.py migrate
-web: cd backend && gunicorn config.wsgi:application --log-file - --timeout 360
+release: cd backend/code && python manage.py migrate
+web: cd backend/code && gunicorn config.wsgi:application --log-file - --timeout 360

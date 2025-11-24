@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.conf import settings
 from pathlib import Path
 import os
-from azure.storage.blob import BlobServiceClient
+from config.storage.azure_blob import get_blob_service_client
 
 class Command(BaseCommand):
     help = 'Azuriteに天気データファイルをテストアップロード'
@@ -25,8 +25,7 @@ class Command(BaseCommand):
         
         try:
             # Azure接続テスト
-            bsc = BlobServiceClient.from_connection_string(settings.AZURE_CONNECTION_STRING)
-            container = bsc.get_container_client(settings.AZURE_CONTAINER)
+            container = get_blob_service_client()
             self.stdout.write(self.style.SUCCESS("Azure接続成功"))
             
             # ファイルアップロードテスト

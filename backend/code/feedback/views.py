@@ -320,30 +320,40 @@ def run_model(request, vegetable):
         messages.error(request, '無効なターゲット月が指定されました。')
         return redirect(request.META.get('HTTP_REFERER', '/'))
 
+    # 通常の説明変数を取得
     variable_ids = request.POST.getlist('variables')
-    if not variable_ids:
+    
+    # ComputeMarket変数を取得
+    compute_market_variables = request.POST.getlist('compute_market_variables')
+    
+    # 少なくとも一つの変数が選択されている必要がある
+    if not variable_ids and not compute_market_variables:
         messages.error(request, '説明変数を選択してください。')
         return redirect(request.META.get('HTTP_REFERER', '/'))
+    
     vals = list(variable_ids)
 
     try:
-        # 選択された変数のリストを取得
-        # TODO: ここ！！
-        # variables = ForecastModelVariable.objects.filter(pk__in=vals)
-        if not vals:
-            messages.error(request, '選択された説明変数が見つかりません。')
-            return redirect(request.META.get('HTTP_REFERER', '/?tab=model'))
-
         # モデル実行サービスを呼び出し
         from forecast.services import ForecastModelService
         tag_name = get_tag_name(vegetable)
-        # imakoko
-        # FIXME: ForecastModelService()は使わなくても`forecast/service`ディレクトリで完結するはず！
-        # QuerySetが渡ってる
-        result = ForecastModelService().run_model(tag_name, target_month, vals)
+        
+        # ComputeMarket変数も含めてモデルを実行
+        result = ForecastModelService().run_model(
+            tag_name, 
+            target_month, 
+            vals, 
+            compute_market_variables=compute_market_variables
+        )
         
         if result:
-            messages.success(request, f'{vegetable}の{target_month}月モデルを実行しました。')
+            selected_vars = []
+            if variable_ids:
+                selected_vars.append(f"通常変数{len(variable_ids)}個")
+            if compute_market_variables:
+                selected_vars.append(f"市場変数{len(compute_market_variables)}個")
+            var_info = "、".join(selected_vars)
+            messages.success(request, f'{vegetable}の{target_month}月モデルを実行しました。（{var_info}）')
         else:
             messages.error(request, 'モデルの実行に失敗しました。')
     except Exception as e:

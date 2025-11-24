@@ -2,7 +2,7 @@
 # python manage.py shell < test_csv.py
 
 from django.conf import settings
-from azure.storage.blob import BlobServiceClient
+from config.storage.azure_blob import get_blob_service_client
 import csv
 from io import StringIO
 import traceback
@@ -21,9 +21,7 @@ def debug_csv_file(blob_name):
     print(f"使用コンテナ: {container_name}")
     
     try:
-        bsc = BlobServiceClient.from_connection_string(conn_str)
-        container = bsc.get_container_client(container_name)
-        
+        container = get_blob_service_client()
         # ファイルが存在するか確認
         print(f"- ファイル存在確認: {blob_name}")
         blob_client = container.get_blob_client(blob_name)

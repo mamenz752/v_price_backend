@@ -379,7 +379,7 @@ def run_model_by_webhook(request):
             logger=logger
         )
         
-        logger.info(f"予測モデル更新完了: {updated_count} 件更新")
+        logger.info(f"予測モデル更新完了: {updated_count} 件更新（全野菜対象）")
         
         # 成功メッセージ（詳細な期間情報を含む）
         compute_summary = f"Market: {market_result.created}作成/{market_result.updated}更新, Weather: {weather_result.created}作成/{weather_result.updated}更新"

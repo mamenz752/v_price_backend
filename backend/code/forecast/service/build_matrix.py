@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import logging
 from datetime import datetime
 from typing import Tuple, Dict, List, Optional
 from django.db.models import Q
@@ -69,8 +70,8 @@ class MatrixBuilder:
         if df.empty:
             raise ValueError(f"No data for period={period}")
 
-        # 2) y（目的変数）- average_priceを使用
-        y = pd.to_numeric(df["average_price"], errors="coerce").astype(float)
+        # 2) y（目的変数）- source_priceを使用
+        y = pd.to_numeric(df["source_price"], errors="coerce").astype(float)
 
         # 3) X（説明変数）: FeatureSetに忠実に構築
         resolver = FeatureResolver(feature_set)
@@ -118,13 +119,24 @@ class ForecastModelDataBuilder:
     予測モデル用のデータセットを構築するクラス
     """
     
-    def __init__(self, region_name: str = '広島'):
+    def __init__(self, region_name: str = '広島', config: Dict = None):
         """
         初期化
         Args:
             region_name (str, optional): 対象地域名。デフォルトは'広島'。
+            config (Dict): 設定辞書
+                - 'historical_years': 過去データの年数（デフォルト5）
+                - 'min_required_years': 最低必要年数（デフォルト2）
+                - 'base_start_year': 基準開始年（デフォルト2021）
+                - 'max_lookback_years': 最大遡及年数（デフォルト10）
         """
         self.region = Region.objects.get(name=region_name)
+        self.config = config or {}
+        self.historical_years = self.config.get('historical_years', 5)
+        self.min_required_years = self.config.get('min_required_years', 2)
+        self.base_start_year = self.config.get('base_start_year', 2021)
+        self.max_lookback_years = self.config.get('max_lookback_years', 10)
+        self.logger = logging.getLogger(__name__ + '.ForecastModelDataBuilder')
     
     def get_model_kind_by_name(self, model_name: str) -> Optional[ForecastModelKind]:
         """
@@ -136,86 +148,306 @@ class ForecastModelDataBuilder:
         Returns:
             Optional[ForecastModelKind]: モデル種類オブジェクト、見つからない場合はNone
         """
-        print(f"DEBUG: モデル種類の検索開始 - model_name='{model_name}'")
+        self.logger.debug(f"モデル種類の検索開始 - model_name='{model_name}'")
         try:
             # 登録済みのすべてのモデル種類を取得して確認
             all_models = ForecastModelKind.objects.all()
-            print(f"DEBUG: 登録済みモデル一覧: {[model.tag_name for model in all_models]}")
+            self.logger.debug(f"登録済みモデル一覧: {[model.tag_name for model in all_models]}")
             
             model_kind = ForecastModelKind.objects.get(tag_name=model_name)
-            print(f"DEBUG: モデル種類が見つかりました - id={model_kind.id}, tag_name={model_kind.tag_name}")
+            self.logger.debug(f"モデル種類が見つかりました - id={model_kind.id}, tag_name={model_kind.tag_name}")
             return model_kind
         except ForecastModelKind.DoesNotExist:
-            print(f"警告: モデル種類 '{model_name}' は見つかりませんでした。")
+            self.logger.warning(f"モデル種類 '{model_name}' は見つかりませんでした。")
             return None
     
-    def get_weather_data_for_period(self, year: int, month: int, previous_term: int) -> Dict:
+    def get_weather_data_for_period(self, year: int, month: int, previous_term: int, 
+                                   years_back: int = None) -> Dict:
         """
-        指定された期間の気象データを取得する
+        指定された期間の気象データを取得する（過去N年間の平均値）
         
         Args:
             year (int): 対象年
             month (int): 対象月
-            previous_term (int): 何ヶ月前のデータか（1〜24）
+            previous_term (int): 何半月前のデータか（半月単位：1=前回半月、2=1ヶ月前前半、3=1ヶ月前後半など）
+            years_back (int, optional): 過去何年分のデータを使用するか。Noneの場合は設定値を使用
             
         Returns:
-            Dict: 気象データの辞書
+            Dict: 気象データの辞書（過去N年間の平均値）
         """
-        # 対象月から previous_term ヶ月前の年月を計算
-        target_year = year
-        target_month = month - previous_term
+        if years_back is None:
+            years_back = self.historical_years
+            
+        self.logger.debug(f"気象データ取得開始 - year={year}, month={month}, previous_term={previous_term}, years_back={years_back}")
         
-        # 月が負または0になった場合は前年の対応する月に調整
-        while target_month <= 0:
-            target_year -= 1
-            target_month += 12
+        # previous_termを半月単位で計算（前半=0, 後半=1）
+        # 2025年1月前半からprevious_term=3なら -> 2024年11月後半
+        current_half_index = 0  # 前半をデフォルトとする
         
-        # 対象期間の前半・後半を決定
-        target_half = '後半' if previous_term <= 1 else '前半'
+        # 現在の月と半期を半月インデックスに変換
+        current_half_total = (year * 12 + (month - 1)) * 2 + current_half_index
         
-        print(f"DEBUG: get_weather_data_for_period - region={self.region.name}, year={target_year}, month={target_month}, half={target_half}")
+        # previous_termだけ過去に遡る
+        target_half_total = current_half_total - previous_term
         
-        # 対象期間の気象データを取得
-        weather_data = ComputeWeather.objects.filter(
+        # 半月インデックスから年月半期に変換
+        target_year = target_half_total // 24  # 1年=24半月
+        remaining = target_half_total % 24
+        target_month = (remaining // 2) + 1
+        target_half = '前半' if (remaining % 2 == 0) else '後半'
+        
+        self.logger.info(f"計算結果 - target_year={target_year}, target_month={target_month}, target_half={target_half}")
+        self.logger.debug(f"半月インデックス - current={current_half_total}, target={target_half_total}")
+        
+        # 過去N年間のデータを取得（target_yearからN年前まで）
+        start_year = target_year - (years_back - 1)
+        end_year = target_year
+        
+        self.logger.info(f"気象データ検索範囲: {start_year}年-{end_year}年 {target_month}月{target_half}")
+        
+        weather_data_list = ComputeWeather.objects.filter(
             region=self.region,
-            target_year=target_year,
+            target_year__gte=start_year,
+            target_year__lte=end_year,
             target_month=target_month,
             target_half=target_half
-        ).first()
+        ).values(
+            'target_year', 'max_temp', 'mean_temp', 'min_temp', 
+            'sum_precipitation', 'sunshine_duration', 'ave_humidity'
+        )
         
-        if not weather_data:
-            print(f"警告: {target_year}年{target_month}月{target_half}の気象データが見つかりませんでした。region={self.region.name}")
+        self.logger.info(f"気象データクエリ結果: {len(weather_data_list)}件のデータを取得")
+        if weather_data_list:
+            years_found = [data['target_year'] for data in weather_data_list]
+            self.logger.debug(f"取得した年度: {sorted(years_found)}")
+        
+        # データが不足している場合は範囲を拡張
+        if len(weather_data_list) < self.min_required_years:
+            extended_start = max(self.base_start_year, target_year - self.max_lookback_years)
+            self.logger.warning(f"データ不足({len(weather_data_list)}件)のため検索範囲を{extended_start}年まで拡張")
             
-            # 試しに他のhalfでも検索してみる
-            alt_half = '前半' if target_half == '後半' else '後半'
-            alt_weather = ComputeWeather.objects.filter(
+            weather_data_list = ComputeWeather.objects.filter(
                 region=self.region,
-                target_year=target_year,
+                target_year__gte=extended_start,
+                target_year__lte=end_year,
                 target_month=target_month,
-                target_half=alt_half
-            ).first()
+                target_half=target_half
+            ).values(
+                'target_year', 'max_temp', 'mean_temp', 'min_temp', 
+                'sum_precipitation', 'sunshine_duration', 'ave_humidity'
+            )
             
-            if alt_weather:
-                print(f"INFO: 代替として {target_year}年{target_month}月{alt_half}の気象データを使用します")
-                weather_data = alt_weather
-            else:
-                # 代替がなければ空辞書を返す
-                return {}
+            self.logger.info(f"拡張検索結果: {len(weather_data_list)}件のデータを取得")
         
-        # 返却する気象データ辞書を構築
+        if not weather_data_list:
+            self.logger.error(f"気象データが見つかりません: {start_year}-{end_year}年{target_month}月{target_half}, region={self.region.name}")
+            return {}
+        
+        # 過去5年間の平均値を計算
+        import statistics
+        
+        def safe_mean(values):
+            """Noneを除外して平均値を計算"""
+            valid_values = [v for v in values if v is not None]
+            return statistics.mean(valid_values) if valid_values else None
+        
+        # 各気象変数の平均値を計算
+        max_temps = [data['max_temp'] for data in weather_data_list]
+        mean_temps = [data['mean_temp'] for data in weather_data_list]
+        min_temps = [data['min_temp'] for data in weather_data_list]
+        precipitations = [data['sum_precipitation'] for data in weather_data_list]
+        sunshine_durations = [data['sunshine_duration'] for data in weather_data_list]
+        humidities = [data['ave_humidity'] for data in weather_data_list]
+        
+        # 各変数の詳細ログ出力
+        self.logger.debug(f"気象データ詳細 ({len(weather_data_list)}年間):")
+        self.logger.debug(f"  - max_temp値: {[v for v in max_temps if v is not None]} → 平均: {safe_mean(max_temps)}")
+        self.logger.debug(f"  - mean_temp値: {[v for v in mean_temps if v is not None]} → 平均: {safe_mean(mean_temps)}")
+        self.logger.debug(f"  - min_temp値: {[v for v in min_temps if v is not None]} → 平均: {safe_mean(min_temps)}")
+        self.logger.debug(f"  - precipitation値: {[v for v in precipitations if v is not None]} → 平均: {safe_mean(precipitations)}")
+        self.logger.debug(f"  - sunshine値: {[v for v in sunshine_durations if v is not None]} → 平均: {safe_mean(sunshine_durations)}")
+        self.logger.debug(f"  - humidity値: {[v for v in humidities if v is not None]} → 平均: {safe_mean(humidities)}")
+        
+        # 返却する気象データ辞書を構築（過去N年間の平均値）
         result = {
             'year': target_year,
             'month': target_month,
-            'half': weather_data.target_half,
-            'max_temp': weather_data.max_temp,
-            'mean_temp': weather_data.mean_temp,
-            'min_temp': weather_data.min_temp,
-            'sum_precipitation': weather_data.sum_precipitation,
-            'sunshine_duration': weather_data.sunshine_duration,
-            'ave_humidity': weather_data.ave_humidity
+            'half': target_half,
+            'max_temp': safe_mean(max_temps),
+            'mean_temp': safe_mean(mean_temps),
+            'min_temp': safe_mean(min_temps),
+            'sum_precipitation': safe_mean(precipitations),
+            'sunshine_duration': safe_mean(sunshine_durations),
+            'ave_humidity': safe_mean(humidities),
+            'data_count': len(weather_data_list),  # 平均計算に使用したデータ件数
+            'years_used': years_back  # 使用した年数
         }
         
+        self.logger.info(f"気象データ平均値計算完了: {len(weather_data_list)}件のデータから計算")
+        
         return result
+    
+    def get_market_data_for_period(self, year: int, month: int, half: str, vegetable, variable_name: str,
+                                 years_back: int = None) -> float:
+        """
+        指定された期間の市場データを取得する（過去N年間の平均値）
+        
+        Args:
+            year (int): 対象年
+            month (int): 対象月
+            half (str): 対象半期（'前半' or '後半'）
+            vegetable: 野菜オブジェクト
+            variable_name (str): 変数名（'prev_price', 'prev_volume', 'years_price', 'years_volume'）
+            years_back (int, optional): 過去何年分のデータを使用するか。Noneの場合は設定値を使用
+            
+        Returns:
+            float: 市場データの過去N年間平均値
+        """
+        if years_back is None:
+            years_back = self.historical_years
+            
+        # 過去N年間のデータを取得
+        start_year = year - (years_back - 1)
+        end_year = year
+        
+        self.logger.info(f"市場データ取得開始 - vegetable={vegetable.name}, year={year}, month={month}, half={half}, variable={variable_name}")
+        self.logger.debug(f"過去{years_back}年間対象期間: {start_year}年-{end_year}年")
+        
+        market_data_list = ComputeMarket.objects.filter(
+            vegetable=vegetable,
+            region=self.region,
+            target_year__gte=start_year,
+            target_year__lte=end_year,
+            target_month=month,
+            target_half=half
+        )
+        
+        self.logger.info(f"市場データクエリ結果: {market_data_list.count()}件のデータを取得")
+        if market_data_list.exists():
+            years_found = list(market_data_list.values_list('target_year', flat=True))
+            self.logger.debug(f"取得した年度: {sorted(years_found)}")
+        
+        # データが不足している場合は範囲を拡張
+        if market_data_list.count() < self.min_required_years:
+            extended_start = max(self.base_start_year, year - self.max_lookback_years)
+            self.logger.warning(f"市場データ不足({market_data_list.count()}件)のため検索範囲を{extended_start}年まで拡張")
+            
+            market_data_list = ComputeMarket.objects.filter(
+                vegetable=vegetable,
+                region=self.region,
+                target_year__gte=extended_start,
+                target_year__lte=end_year,
+                target_month=month,
+                target_half=half
+            )
+            
+            self.logger.info(f"拡張検索結果: {market_data_list.count()}件のデータを取得")
+        
+        if not market_data_list:
+            self.logger.error(f"市場データが見つかりません: {start_year}-{end_year}年{month}月{half}, vegetable={vegetable.name}")
+            return None
+        
+        # 指定された変数の値を取得
+        values = []
+        for market_data in market_data_list:
+            if hasattr(market_data, variable_name):
+                value = getattr(market_data, variable_name, None)
+                if value is not None:
+                    values.append(value)
+        
+        self.logger.debug(f"{variable_name}の生データ: {values}")
+        
+        if not values:
+            self.logger.warning(f"{variable_name}の有効なデータが見つかりませんでした")
+            return None
+        
+        # 平均値を計算
+        import statistics
+        average_value = statistics.mean(values)
+        
+        self.logger.info(f"★{variable_name}の過去{years_back}年間平均値: {average_value:.2f} (データ件数: {len(values)})★")
+        self.logger.debug(f"使用した年度とデータ: {list(zip([d.target_year for d in market_data_list if getattr(d, variable_name, None) is not None], values))}")
+        
+        return average_value
+    
+    def _get_raw_weather_value(self, year: int, month: int, half: str, variable_name: str) -> Optional[float]:
+        """指定された単一期間の生の気象データを取得する"""
+        try:
+            weather = ComputeWeather.objects.get(
+                region=self.region,
+                target_year=year,
+                target_month=month,
+                target_half=half
+            )
+            self.logger.debug(f"生の気象データ取得: {year}-{month}-{half} {variable_name} = {getattr(weather, variable_name, None)}")
+            return getattr(weather, variable_name, None)
+        except ComputeWeather.DoesNotExist:
+            self.logger.warning(f"生の気象データなし: {year}-{month}-{half}, {variable_name}")
+            return None
+    
+    def _get_raw_market_value(self, year: int, month: int, half: str, vegetable, variable_name: str) -> Optional[float]:
+        """指定された単一期間の生の市場データを取得する"""
+        try:
+            market = ComputeMarket.objects.get(
+                region=self.region,
+                vegetable=vegetable,
+                target_year=year,
+                target_month=month,
+                target_half=half
+            )
+            # 'prev_price' などを適切なフィールドにマッピング
+            if variable_name == 'prev_price' or variable_name == 'years_price':
+                value = market.source_price
+            elif variable_name == 'prev_volume' or variable_name == 'years_volume':
+                value = market.volume
+            else:
+                value = getattr(market, variable_name, None)
+            
+            self.logger.debug(f"生の市場データ取得: {year}-{month}-{half} {vegetable.name} {variable_name} = {value}")
+            return value
+        except ComputeMarket.DoesNotExist:
+            self.logger.warning(f"生の市場データなし: {year}-{month}-{half}, {vegetable.name}, {variable_name}")
+            return None
+    
+    def _get_feature_value(self, target_year: int, target_month: int, target_half: str, variable, vegetable) -> Optional[float]:
+        """
+        モデル学習用の特徴量（単一の過去データ）を取得する
+        
+        Args:
+            target_year: 目的変数の年
+            target_month: 目的変数の月
+            target_half: 目的変数の半期
+            variable: ForecastModelVariable インスタンス
+            vegetable: Vegetable インスタンス
+            
+        Returns:
+            float: 特徴量の値、見つからない場合はNone
+        """
+        var_name = variable.name
+        prev_term = variable.previous_term
+
+        # 過去の時点を計算（半月単位）
+        target_half_total = (target_year * 12 + (target_month - 1)) * 2 + (0 if target_half == '前半' else 1)
+        feature_half_total = target_half_total - prev_term
+        
+        feature_year = feature_half_total // 24
+        remaining = feature_half_total % 24
+        feature_month = remaining // 2 + 1
+        feature_half = '前半' if remaining % 2 == 0 else '後半'
+
+        self.logger.debug(f"特徴量計算: target={target_year}-{target_month}-{target_half}, prev_term={prev_term} → feature={feature_year}-{feature_month}-{feature_half}")
+
+        # 変数タイプに応じて値を取得
+        weather_variables = ['max_temp', 'mean_temp', 'min_temp', 'sum_precipitation', 'sunshine_duration', 'ave_humidity']
+        market_variables = ['prev_price', 'prev_volume', 'years_price', 'years_volume']
+
+        if var_name in weather_variables:
+            return self._get_raw_weather_value(feature_year, feature_month, feature_half, var_name)
+        elif var_name in market_variables:
+            return self._get_raw_market_value(feature_year, feature_month, feature_half, vegetable, var_name)
+        
+        self.logger.warning(f"未知の変数タイプ: {var_name}")
+        return None
     
     def build_feature_dataset(self, model_name: str, target_month: int, year: int = None) -> pd.DataFrame:
         """
@@ -245,7 +477,7 @@ class ForecastModelDataBuilder:
         ).select_related('variable')
         
         if not feature_sets.exists():
-            print(f"対象月 {target_month} に関連する特徴セットが見つかりませんでした。")
+            self.logger.warning(f"対象月 {target_month} に関連する特徴セットが見つかりませんでした。")
             return pd.DataFrame()
         
         # 特徴量データを収集
@@ -256,11 +488,13 @@ class ForecastModelDataBuilder:
             variable_name = variable.name
             previous_term = variable.previous_term
             
-            # 変数がWeather関連の場合
+            # 変数がWeather関連の場合（過去5年間の平均値を使用）
             if variable_name in ['max_temp', 'mean_temp', 'min_temp', 'sum_precipitation', 'sunshine_duration', 'ave_humidity']:
+                self.logger.info(f"★気象変数 {variable_name} (previous_term={previous_term}) の過去5年間平均値を取得中★")
                 weather_data = self.get_weather_data_for_period(year, target_month, previous_term)
                 if weather_data:
-                    feature_value = weather_data.get(variable_name)
+                    feature_value = weather_data.get(variable_name)  # 既に過去5年間の平均値
+                    self.logger.info(f"★気象変数 {variable_name} の特徴量値: {feature_value}★")
                     
                     # 特徴量データに追加
                     features_data.append({
@@ -272,8 +506,29 @@ class ForecastModelDataBuilder:
                         'half': weather_data['half']
                     })
             
+            # 市場データ関連の場合（過去5年間の平均値を使用）
+            elif variable_name in ['prev_price', 'prev_volume', 'years_price', 'years_volume']:
+                self.logger.info(f"★市場変数 {variable_name} (previous_term={previous_term}) の過去5年間平均値を取得中★")
+                # 市場データの場合は現在と同じ半期を使用（予測対象期間に対応）
+                current_half = '前半'  # 予測対象は通常前半で開始
+                
+                feature_value = self.get_market_data_for_period(
+                    year, target_month, current_half, model_kind.vegetable, variable_name
+                )
+                
+                if feature_value is not None:
+                    self.logger.info(f"★市場変数 {variable_name} の特徴量値: {feature_value}★")
+                    features_data.append({
+                        'variable_name': variable_name,
+                        'previous_term': previous_term,
+                        'value': feature_value,
+                        'year': year,
+                        'month': target_month,
+                        'half': current_half
+                    })
+            
             # その他の変数タイプの処理はここに追加
-            # 例：価格データなど
+            # 例：その他の価格データなど
         
         # 特徴量データをデータフレームに変換
         df = pd.DataFrame(features_data)
@@ -308,7 +563,7 @@ class ForecastModelDataBuilder:
         ).select_related('variable')
         
         if not feature_sets.exists():
-            print(f"対象月 {target_month} に関連する特徴セットが見つかりませんでした。")
+            self.logger.warning(f"対象月 {target_month} に関連する特徴セットが見つかりませんでした。")
             return {}
         
         # 気象データを格納する辞書
@@ -358,13 +613,13 @@ class ForecastModelDataBuilder:
         if year is None:
             year = datetime.now().year
             
-        print(f"DEBUG: analyze_weather_data_for_forecast - model_name={model_name}, target_month={target_month}, year={year}")
+        self.logger.debug(f"analyze_weather_data_for_forecast - model_name={model_name}, target_month={target_month}, year={year}")
         
         # 気象データを取得
         weather_data_dict = self.get_previous_weather_for_model(model_name, target_month, year)
         
         if not weather_data_dict:
-            print(f"警告: {year}年の{target_month}月に関連する気象データが見つかりませんでした。")
+            self.logger.warning(f"{year}年の{target_month}月に関連する気象データが見つかりませんでした。")
             return pd.DataFrame()
         
         # データを整形
@@ -387,13 +642,13 @@ class ForecastModelDataBuilder:
         df = pd.DataFrame(rows)
         
         if df.empty:
-            print(f"警告: {year}年の{target_month}月の気象データフレームが空です。")
+            self.logger.warning(f"{year}年の{target_month}月の気象データフレームが空です。")
             return df
             
         # previous_termでソート
         df = df.sort_values(['variable', 'previous_term'])
         
-        print(f"INFO: {year}年の{target_month}月に関連する気象データ {len(df)} 行を取得しました。")
+        self.logger.info(f"{year}年の{target_month}月に関連する気象データ {len(df)} 行を取得しました。")
         
         return df
     
@@ -417,7 +672,7 @@ class ForecastModelDataBuilder:
         # モデル種類を取得
         model_kind = self.get_model_kind_by_name(model_name)
         if not model_kind:
-            print(f"警告: モデル種類 '{model_name}' は見つかりませんでした。")
+            self.logger.warning(f"モデル種類 '{model_name}' は見つかりませんでした。")
             return []
         
         # 野菜情報を取得
@@ -427,7 +682,7 @@ class ForecastModelDataBuilder:
         start_year = 2021
         end_year = year
         
-        print(f"INFO: {vegetable}の{target_month}月の価格データを{start_year}年から{end_year}年まで取得します。")
+        self.logger.info(f"{vegetable}の{target_month}月の価格データを{start_year}年から{end_year}年まで取得します。")
         
         # 指定期間のすべての価格データを取得
         market_data_list = ComputeMarket.objects.filter(
@@ -439,7 +694,7 @@ class ForecastModelDataBuilder:
         ).order_by('target_year', 'target_half')
         
         if not market_data_list:
-            print(f"警告: {vegetable}の{target_month}月の価格データが見つかりませんでした。")
+            self.logger.warning(f"{vegetable}の{target_month}月の価格データが見つかりませんでした。")
             return []
         
         # 返却するデータリストを構築
@@ -450,44 +705,43 @@ class ForecastModelDataBuilder:
                 'year': market_data.target_year,
                 'month': market_data.target_month,
                 'half': market_data.target_half,
-                'average_price': market_data.average_price,
+                'average_price': market_data.source_price,
                 'source_price': market_data.source_price,
                 'volume': market_data.volume,
                 'vegetable': vegetable.name
             }
             result_list.append(result)
         
-        print(f"INFO: {vegetable}の{target_month}月の価格データを{len(result_list)}件取得しました。")
+        self.logger.info(f"{vegetable}の{target_month}月の価格データを{len(result_list)}件取得しました。")
         return result_list
 
     def build_forecast_dataset(self, model_name: str, target_month: int, year: int = None, vals: List[str] = None) -> Dict:
         """
         予測用のデータセットを構築する（特徴量Xと目的変数Yの両方）。
         2021年から指定年までの複数年のデータを使用する。
+        ★モデル学習用: 特徴量は「そのままの値」を使用する★
         
         Args:
             model_name (str): モデル名（例: "キャベツ春まき"）
             target_month (int): 対象月（1〜12）
             year (int, optional): 対象年。指定しない場合は現在の年
-            vals (List[str]): 使用する変数名リスト
+            vals (List[str]): 使用する変数IDリスト
             
         Returns:
             Dict: 予測用データセット（X特徴量とY目的変数を含む）
         """
-        print("受け取っているvariable_names:", vals)
-        print(f"DEBUG: build_forecast_dataset - model_name={model_name}, target_month={target_month}, year={year}")
+        self.logger.debug(f"build_forecast_dataset - vars={vals}, model={model_name}, month={target_month}, year={year}")
         
         # モデル種類が存在するか確認
         model_kind = self.get_model_kind_by_name(model_name)
         if not model_kind:
-            print(f"DEBUG: モデル種類 '{model_name}' が見つかりません")
+            self.logger.error(f"モデル種類 '{model_name}' が見つかりません")
             raise ValueError(f"モデル「{model_name}」は登録されていません。先にモデル種類を登録してください。")
 
         # 使用する変数リストの決定
         if vals:
-            # 明示的に変数名リストが渡された場合はそれを使う
+            # 明示的に変数IDリストが渡された場合はそれを使う
             variables = ForecastModelVariable.objects.filter(pk__in=vals)
-            # variables_list = list(ForecastModelVariable.objects.filter(name__in=val_ids))
             if not variables:
                 raise ValueError(f"指定された変数が見つかりませんでした: {vals}")
         else:
@@ -497,74 +751,81 @@ class ForecastModelDataBuilder:
                 target_month=target_month
             ).select_related('variable')
             if not feature_sets.exists():
-                print(f"DEBUG: 対象月 {target_month} の特徴セットが見つかりません")
-                print(f"DEBUG: model_kind.id={model_kind.id}, tag_name={model_kind.tag_name}")
+                self.logger.error(f"対象月 {target_month} の特徴セット未設定 - model_kind.id={model_kind.id}, tag_name={model_kind.tag_name}")
                 raise ValueError(f"モデル「{model_name}」（{target_month}月）の特徴量セットが未設定です。特徴量を設定してからモデルを実行してください。")
 
-            # FIXME: どうしたらいいかわからん
-            variables_prev = [fs.variable for fs in feature_sets]
+            variables = [fs.variable for fs in feature_sets]
         
         # 価格データ（目的変数Y）を取得 - 複数年分
         try:
-            print(f"DEBUG: 価格データ取得開始 - model={model_name}, month={target_month}, year={year}")
+            self.logger.debug(f"価格データ取得開始 - model={model_name}, month={target_month}, year={year}")
             price_data_list = self.get_target_price_data(model_name, target_month, year)
             if not price_data_list:
-                print(f"DEBUG: 価格データが空です")
+                self.logger.error(f"価格データが空 - model={model_name}, month={target_month}")
                 raise ValueError(f"モデル「{model_name}」（{target_month}月）の価格データが見つかりません。2021年以降のデータが必要です。")
-            print(f"DEBUG: 価格データ取得成功 - {len(price_data_list)}件のデータを取得")
+            self.logger.debug(f"価格データ取得成功 - {len(price_data_list)}件のデータを取得")
         except Exception as e:
-            print(f"DEBUG: 価格データ取得エラー - {str(e)}")
+            self.logger.error(f"価格データ取得エラー - {str(e)}")
             raise ValueError(f"モデル「{model_name}」（{target_month}月）の価格データ取得中にエラーが発生しました: {str(e)}")
         
-        # 各年・各半期の価格データに対応する気象データを取得して結合
+        # 各年・各半期の価格データに対応する特徴量データを取得して結合
         rows = []
-        weather_variables = ['max_temp', 'mean_temp', 'min_temp', 'sum_precipitation', 'sunshine_duration', 'ave_humidity']
-
+        
         for price_data in price_data_list:
             price_year = price_data['year']
             price_half = price_data['half']
             price_value = price_data['average_price']
 
-            # 変数ごとに previous_term に基づいて気象データを取得
+            feature_row = {'price': price_value, 'year': price_year, 'half': price_half}
+            is_valid_row = True
+
+            # 変数ごとに特徴量を取得（★そのままの値を使用★）
             for variable in variables:
-                var_name = variable.name
-                prev_term = getattr(variable, 'previous_term', 0)
+                feature_value = self._get_feature_value(price_year, target_month, price_half, variable, model_kind.vegetable)
+                
+                # 市場データ変数の場合はprevious_termをつけない
+                market_variables = ['prev_price', 'prev_volume', 'years_price', 'years_volume']
+                if variable.name in market_variables:
+                    feature_name = variable.name
+                else:
+                    feature_name = f"{variable.name}_{variable.previous_term}"
+                
+                feature_row[feature_name] = feature_value
 
-                # 現状は気象変数のみ処理（将来的に価格等も追加可能）
-                if var_name in weather_variables:
-                    weather_data = self.get_weather_data_for_period(price_year, target_month, prev_term)
-                    if not weather_data:
-                        # データが見つからなければスキップ
-                        continue
+                if feature_value is None:
+                    is_valid_row = False
+                    self.logger.warning(f"特徴量取得失敗: {price_year}-{price_half} の {feature_name} がNoneです。この行は除外されます。")
+                    break  # この行は使えないので次の価格データへ
+            
+            if is_valid_row:
+                rows.append(feature_row)
 
-                    rows.append({
-                        'variable': var_name,
-                        'previous_term': prev_term,
-                        'value': weather_data.get(var_name),
-                        'year': weather_data['year'],
-                        'month': weather_data['month'],
-                        'half': weather_data['half'],
-                        'model': model_name,
-                        'target_month': target_month,
-                        'price_year': price_year,
-                        'price_half': price_half,
-                        'price': price_value
-                    })
-        
-        # 全データを結合
         if not rows:
-            print(f"DEBUG: 気象データが取得できませんでした")
-            raise ValueError(f"モデル「{model_name}」（{target_month}月）の気象データが取得できませんでした")
+            self.logger.error(f"有効な学習データセットを構築できませんでした。model={model_name}, month={target_month}")
+            raise ValueError(f"モデル「{model_name}」（{target_month}月）の有効な学習データが1行もありませんでした。")
 
-        combined_weather_df = pd.DataFrame(rows)
+        # DataFrameに変換
+        df = pd.DataFrame(rows)
         
-        # 結合した行数と扱った価格年数をログに出す
-        print(f"INFO: 結合データ行数: {len(combined_weather_df)} (価格データ年数: {len(price_data_list)})")
+        # 目的変数Yを準備（prepare_regression_dataが期待する形式）
+        # 年・半期・価格を含む辞書のリストで返す
+        y = []
+        for idx, row in df.iterrows():
+            y.append({
+                'year': int(row['year']),
+                'half': row['half'],
+                'source_price': float(row['price'])
+            })
+        
+        # 特徴量Xの準備
+        X = df.drop(columns=['price', 'year', 'half'])
+
+        self.logger.info(f"学習データセット構築完了: {len(X)}件のデータを生成")
 
         # 結果を辞書として返却
         result = {
-            'X': combined_weather_df,
-            'Y': price_data_list,
+            'X': X,
+            'Y': y,  # 辞書型リスト
             'model': model_name,
             'target_month': target_month,
             'year': year or datetime.now().year

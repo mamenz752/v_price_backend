@@ -2,7 +2,7 @@
 デバッグ用の設定ファイル
 """
 
-from .settings import *
+from .settings_base import *
 import os
 
 # デバッグログの設定

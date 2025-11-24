@@ -37,7 +37,7 @@ class ForecastOLSRunner:
         self.data_builder = data_builder or ForecastModelDataBuilder(region_name=config.region_name if config else '広島')
         self.cfg = config or ForecastOLSConfig()
 
-    def prepare_regression_data(self, model_name: str, target_month: int, vals: List[int]) -> tuple:
+    def prepare_regression_data(self, model_name: str, target_month: int, vals: List[int], compute_market_variables=None) -> tuple:
         """
         回帰分析用のデータを準備する
         複数年（2021-2025年）のデータを扱うように更新
@@ -45,7 +45,8 @@ class ForecastOLSRunner:
         Args:
             model_name (str): モデル名（例: "キャベツ春まき"）
             target_month (int): 対象月（1〜12）
-            variables (List[int]): 使用する変数のIDリスト
+            vals (List[int]): 使用する変数のIDリスト
+            compute_market_variables (List[str], optional): ComputeMarketの追加変数リスト
 
         Returns:
             tuple: (X, y, variable_list)
@@ -66,55 +67,111 @@ class ForecastOLSRunner:
         X_df = forecast_dataset['X']
         
         logger = logging.getLogger(__name__)
+        logger.info(f"X_df columns: {X_df.columns.tolist()}")
+        logger.info(f"X_df shape: {X_df.shape}")
+        logger.info(f"X_df sample:\n{X_df.head().to_string()}")
+        
+        # previous_term を整数型に確保（浮動小数点数から整数に変換）
+        if 'previous_term' in X_df.columns:
+            X_df['previous_term'] = X_df['previous_term'].astype(int)
+        
+        # ComputeMarket変数を追加
+        if compute_market_variables:
+            logger = logging.getLogger(__name__)
+            logger.info(f"ComputeMarket変数を追加: {compute_market_variables}")
+            
+            # モデル種類を取得して野菜を特定
+            from forecast.models import ForecastModelKind
+            try:
+                model_kind = ForecastModelKind.objects.get(tag_name=model_name)
+                vegetable = model_kind.vegetable
+                
+                # ComputeMarketデータを取得して追加
+                from compute.models import ComputeMarket
+                
+                # Y から年月情報を抽出
+                if isinstance(forecast_dataset['Y'], list):
+                    for idx, price_data in enumerate(forecast_dataset['Y']):
+                        year = price_data.get('year')
+                        half = price_data.get('half')
+                        
+                        # 各ComputeMarket変数に対してデータを取得
+                        for var_name in compute_market_variables:
+                            # 該当するComputeMarketレコードを取得
+                            compute_market = ComputeMarket.objects.filter(
+                                vegetable=vegetable,
+                                target_year=year,
+                                target_month=target_month,
+                                target_half=half
+                            ).first()
+                            
+                            if compute_market:
+                                # 変数値を取得
+                                if var_name == 'prev_price':
+                                    value = getattr(compute_market, 'prev_price', None)
+                                elif var_name == 'prev_volume':
+                                    value = getattr(compute_market, 'prev_volume', None)
+                                elif var_name == 'years_price':
+                                    value = getattr(compute_market, 'years_price', None)
+                                elif var_name == 'years_volume':
+                                    value = getattr(compute_market, 'years_volume', None)
+                                else:
+                                    continue
+                                
+                                if value is not None:
+                                    # X_df に広形式で追加
+                                    # market 変数は "variable_0" の形式で追加
+                                    col_name = f"{var_name}_0"
+                                    
+                                    if col_name not in X_df.columns:
+                                        X_df[col_name] = None
+                                    
+                                    X_df.at[idx, col_name] = value
+                                    logger.info(f"ComputeMarket変数を追加: {col_name}={value} for {year}-{target_month} {half} (行{idx}に追加)")
+                
+            except Exception as e:
+                logger.warning(f"ComputeMarket変数の追加中にエラー: {str(e)}")
+        
+        logger = logging.getLogger(__name__)
         logger.info(f"特徴量データフレーム準備: X_df shape={X_df.shape}")
         logger.debug(f"X_df columns: {X_df.columns.tolist()}")
         logger.debug(f"X_df sample:\n{X_df.head().to_string()}")
         
         try:
-            # 複数年のデータを処理するために、price_yearとprice_halfをインデックスとしたピボットテーブルを作成
-            # 各年のデータが1行となるように変換
-            logger.info("ピボットテーブルの作成を開始")
-            X = X_df.pivot_table(
-                index=['price_year', 'price_half'],
-                columns=['variable', 'previous_term'],
-                values='value',
-                aggfunc='first'
-            )
+            # build_forecast_dataset は特徴量のみを返すため、年月情報を追加する必要がある
+            # forecast_dataset['Y']から年月情報を抽出
+            if isinstance(forecast_dataset['Y'], list) and len(forecast_dataset['Y']) > 0:
+                # Y から年月情報を抽出して X に追加
+                year_half_list = []
+                for price_data in forecast_dataset['Y']:
+                    year_half_list.append({
+                        'year': price_data.get('year'),
+                        'half': price_data.get('half')
+                    })
+                
+                # X のインデックスを設定
+                if len(year_half_list) == len(X_df):
+                    year_half_df = pd.DataFrame(year_half_list)
+                    X = X_df.copy()
+                    X['year'] = year_half_df['year'].values
+                    X['half'] = year_half_df['half'].values
+                    X = X.set_index(['year', 'half'])
+                    logger.info(f"特徴量データに年月情報を追加 - 行数: {X.shape[0]}, 列数: {X.shape[1]}")
+                else:
+                    logger.warning(f"警告: X_df の行数({len(X_df)})と Y の行数({len(year_half_list)})が一致しません")
+                    X = X_df.copy()
+            else:
+                X = X_df.copy()
+                logger.warning("警告: Y がリスト形式ではないか空です")
             
-            # マルチインデックスをフラット化
-            X.columns = [f"{col[0]}_{col[1]}" for col in X.columns]
-            
-            logger.info(f"INFO: ピボットテーブル作成成功 - 行数: {X.shape[0]}, 列数: {X.shape[1]}")
-            logger.info(f"DEBUG: ピボットテーブルのサンプルデータ:\n{X.columns.tolist()}            docker compose exec web tail -n 200 /code/logs/django.log")
+            logger.debug(f"特徴量データ カラム一覧:\n{X.columns.tolist() if hasattr(X, 'columns') else 'インデックス設定済み'}")
             
         except Exception as e:
             # デバッグ情報を出力
-            logger.info(f"ピボットテーブル作成エラー: {str(e)}")
+            logger.error(f"特徴量データ処理エラー: {str(e)}")
             logger.info(f"X_df columns: {X_df.columns}")
             logger.info(f"X_df sample data:\n{X_df.head().to_string()}")
-            
-            # price_yearとprice_halfがない場合のフォールバック
-            if 'price_year' not in X_df.columns:
-                logger.info("警告: price_year列が見つかりません")
-                if 'price' in X_df.columns:
-                    # 価格データに基づいてグループ化
-                    X = X_df.pivot_table(
-                        index=['year', 'half'] if ('year' in X_df.columns and 'half' in X_df.columns) else 'price',
-                        columns=['variable', 'previous_term'],
-                        values='value',
-                        aggfunc='first'
-                    )
-                else:
-                    # 基本的なピボットテーブル
-                    X = X_df.pivot_table(
-                        index=['model', 'target_month'],
-                        columns=['variable', 'previous_term'],
-                        values='value',
-                        aggfunc='first'
-                    )
-            
-            # マルチインデックスをフラット化
-            X.columns = [f"{col[0]}_{col[1]}" for col in X.columns]
+            raise ValueError(f"特徴量データの処理に失敗しました: {str(e)}")
         
         # 目的変数yを準備 - 複数年分
         y_values = {}
@@ -122,16 +179,16 @@ class ForecastOLSRunner:
         # forecast_dataset['Y']がリスト（複数年）の場合の処理
         if isinstance(forecast_dataset['Y'], list):
             for price_data in forecast_dataset['Y']:
-                if 'average_price' in price_data and 'year' in price_data and 'half' in price_data:
+                if 'source_price' in price_data and 'year' in price_data and 'half' in price_data:
                     # 年と半期をキーとして使用
                     key = (price_data['year'], price_data['half'])
-                    y_values[key] = price_data['average_price']
+                    y_values[key] = price_data['source_price']
         else:
             # 単一のデータ辞書の場合
             price_data = forecast_dataset['Y']
-            if price_data and 'average_price' in price_data:
+            if price_data and 'source_price' in price_data:
                 key = (price_data.get('year', 0), price_data.get('half', '前半'))
-                y_values[key] = price_data['average_price']
+                y_values[key] = price_data['source_price']
         
         # Series化
         y = pd.Series(y_values)
@@ -179,28 +236,54 @@ class ForecastOLSRunner:
 
         # 変数リストを作成
         variable_list = []
+        market_variables = ['prev_price', 'prev_volume', 'years_price', 'years_volume']
+        
         for col in X.columns:
             try:
+                # カラム名は "variable_previous_term" 形式
+                # 市場データ変数の場合、previous_termは常に0なので "variable_0"
                 parts = col.split('_')
-                if len(parts) == 2:
-                    var_name, prev_term = parts
+                
+                # 最後の部分がprevious_term（数値）
+                if len(parts) >= 2:
+                    try:
+                        prev_term = int(parts[-1])
+                        var_name = '_'.join(parts[:-1])
+                    except ValueError:
+                        # 最後が数値でない場合は全体を変数名とする
+                        var_name = col
+                        prev_term = 0
                 else:
-                    var_name = '_'.join(parts[:-1])
-                    prev_term = parts[-1]
-
+                    var_name = col
+                    prev_term = 0
+                
+                # 市場データ変数かどうかを判定
+                is_market_var = var_name in market_variables
+                
                 variable_list.append({
                     'name': var_name,
-                    'previous_term': int(prev_term)
+                    'previous_term': prev_term,
+                    'is_market_variable': is_market_var
                 })
             except Exception as e:
                 print(f"変数リスト作成エラー（{col}）: {str(e)}")
                 continue
+        
+        # ComputeMarket変数を変数リストに追加（既に追加済みの場合はスキップ）
+        if compute_market_variables:
+            existing_names = {v['name'] for v in variable_list}
+            for var_name in compute_market_variables:
+                if var_name not in existing_names:
+                    variable_list.append({
+                        'name': var_name,
+                        'previous_term': 0
+                    })
 
         print(f"最終データセット - X: {X.shape}, y: {len(y)}, variables: {variable_list}")
 
         return X, y, variable_list
 
-    def fit_and_persist(self, model_name: str, target_month: int, vals: List[int]) -> Optional[ForecastModelVersion]:
+    def fit_and_persist(self, model_name: str, target_month: int, vals: List[int], compute_market_variables=None) -> Optional[ForecastModelVersion]:
         """
         モデルの学習と結果の永続化を行う
         
@@ -208,12 +291,13 @@ class ForecastOLSRunner:
             model_name (str): モデル名（例: "キャベツ春まき"）
             target_month (int): 対象月（1〜12）
             vals (List[int]): 使用する変数のIDリスト
+            compute_market_variables (List[str], optional): ComputeMarketの追加変数リスト
             
         Returns:
             Optional[ForecastModelVersion]: 作成されたモデルバージョン
         """
         logger = logging.getLogger(__name__)
-        logger.info(f"fit_and_persist開始: モデル={model_name}, 月={target_month}, 変数={vals}")
+        logger.info(f"fit_and_persist開始: モデル={model_name}, 月={target_month}, 変数={vals}, 市場変数={compute_market_variables}")
 
         # 年が指定されていない場合は現在の年を使用
         # if year is None:
@@ -231,7 +315,12 @@ class ForecastOLSRunner:
 
         try:
             # prepare_regression_data のシグネチャを変えたため、キーワードで渡す
-            X, y, variable_list = self.prepare_regression_data(model_name, target_month, vals=vals)
+            X, y, variable_list = self.prepare_regression_data(
+                model_name, 
+                target_month, 
+                vals=vals,
+                compute_market_variables=compute_market_variables
+            )
             logger.info(f"データ準備完了: X shape={X.shape}, y length={len(y)}")
             logger.info(f"データ準備完了: X shape={X.shape}, y length={len(y)}")
         except Exception as e:
@@ -244,6 +333,25 @@ class ForecastOLSRunner:
         logger.info(f"行列サイズ: 観測数(n)={n}, 変数数(p)={p}")
         if n < (p + self.cfg.min_obs_margin):
             raise ValueError(f"観測数が不足しています: n={n}, p={p}, 必要数 >= {p + self.cfg.min_obs_margin}")
+        
+        # X と y のデータ型をチェック・修正
+        logger.info(f"X のデータ型: {X.dtypes.to_dict()}")
+        logger.info(f"y のデータ型: {y.dtype}")
+        
+        # X のすべてのカラムを数値型に変換
+        for col in X.columns:
+            X[col] = pd.to_numeric(X[col], errors='coerce')
+        
+        # y を数値型に変換
+        y = pd.to_numeric(y, errors='coerce')
+        
+        # NaN チェック
+        nan_count_X = X.isna().sum().sum()
+        nan_count_y = y.isna().sum()
+        if nan_count_X > 0:
+            logger.warning(f"警告: X に {nan_count_X} 個の NaN が見つかりました")
+        if nan_count_y > 0:
+            logger.warning(f"警告: y に {nan_count_y} 個の NaN が見つかりました")
         
         # FIXME: ここで予測実行されている可能性あり
         # OLS実行
@@ -358,12 +466,29 @@ class ForecastOLSRunner:
             
             # 変数辞書を作成（名前とprevious_termからvariableオブジェクトを取得）
             variable_dict = {}
+            market_variables = ['prev_price', 'prev_volume', 'years_price', 'years_volume']
+            
             for var_info in variable_list:
                 var_name = var_info['name']
                 prev_term = var_info['previous_term']
+                is_market_var = var_info.get('is_market_variable', var_name in market_variables)
+                
                 try:
-                    var_obj = ForecastModelVariable.objects.get(name=var_name, previous_term=prev_term)
-                    variable_dict[f"{var_name}_{prev_term}"] = var_obj
+                    if is_market_var:
+                        # 市場変数：previous_termは常に0（実際に0となるはず）
+                        var_obj, created = ForecastModelVariable.objects.get_or_create(
+                            name=var_name,
+                            previous_term=0  # 常に0に統一
+                        )
+                        if created:
+                            logger.info(f"市場変数を新規作成: {var_name} (previous_term=0)")
+                        # 市場変数のキーは変数名のみ（previous_termなし）
+                        variable_dict[var_name] = var_obj
+                    else:
+                        # 気象変数：previous_termは実際のラグ値
+                        var_obj = ForecastModelVariable.objects.get(name=var_name, previous_term=prev_term)
+                        # 気象変数のキーは変数名_previous_term
+                        variable_dict[f"{var_name}_{prev_term}"] = var_obj
                 except ForecastModelVariable.DoesNotExist:
                     print(f"警告: 変数 '{var_name}'（previous_term={prev_term}）が見つかりませんでした。")
             
@@ -374,6 +499,8 @@ class ForecastOLSRunner:
             )
             
             # 係数の作成
+            market_variables = ['prev_price', 'prev_volume', 'years_price', 'years_volume']
+            
             for name in model.params.index:
                 # 定数項の場合
                 if name == 'const':
@@ -381,10 +508,24 @@ class ForecastOLSRunner:
                     is_segment = True  # 定数項の場合はis_segmentをTrueに設定
                 else:
                     # 通常の変数の場合
-                    if name not in variable_dict:
-                        print(f"警告: 変数 '{name}' がvariable_dictに見つかりません。スキップします。")
+                    # カラム名から変数名を取得（market_variableか気象変数かで異なる）
+                    var_key = None
+                    
+                    # 市場変数のキーを直接確認
+                    for mvar in market_variables:
+                        if name == mvar:
+                            var_key = mvar
+                            break
+                    
+                    # 市場変数でない場合は気象変数として扱う
+                    if var_key is None:
+                        var_key = name  # 気象変数は "variable_previous_term" 形式のまま
+                    
+                    if var_key not in variable_dict:
+                        print(f"警告: 変数キー '{var_key}' がvariable_dictに見つかりません。スキップします。")
                         continue
-                    variable = variable_dict[name]
+                    
+                    variable = variable_dict[var_key]
                     is_segment = False  # 必要に応じて変更
                 
                 ForecastModelCoef.objects.create(
@@ -960,6 +1101,25 @@ class ForecastOLSRunner:
             import statsmodels.api as sm
             import numpy as np
             
+            # X と y のデータ型をチェック・修正
+            logger.info(f"X のデータ型: {X.dtypes.to_dict()}")
+            logger.info(f"y のデータ型: {y.dtype}")
+            
+            # X のすべてのカラムを数値型に変換
+            for col in X.columns:
+                X[col] = pd.to_numeric(X[col], errors='coerce')
+            
+            # y を数値型に変換
+            y = pd.to_numeric(y, errors='coerce')
+            
+            # NaN チェック
+            nan_count_X = X.isna().sum().sum()
+            nan_count_y = y.isna().sum()
+            if nan_count_X > 0:
+                logger.warning(f"警告: X に {nan_count_X} 個の NaN が見つかりました")
+            if nan_count_y > 0:
+                logger.warning(f"警告: y に {nan_count_y} 個の NaN が見つかりました")
+            
             Xc = sm.add_constant(X, has_constant="add")
             model = sm.OLS(y, Xc).fit()
             
@@ -1022,14 +1182,24 @@ class ForecastOLSRunner:
                 
                 # 変数辞書を作成
                 variable_dict = {}
+                market_variables = ['prev_price', 'prev_volume', 'years_price', 'years_volume']
+                
                 for var_info in variable_list:
                     var_name = var_info['name']
                     prev_term = var_info['previous_term']
+                    is_market_var = var_info.get('is_market_variable', var_name in market_variables)
+                    
                     try:
-                        var_obj = ForecastModelVariable.objects.get(name=var_name, previous_term=prev_term)
-                        variable_dict[f"{var_name}_{prev_term}"] = var_obj
+                        if is_market_var:
+                            # 市場変数：キーは変数名のみ
+                            var_obj = ForecastModelVariable.objects.get(name=var_name, previous_term=0)
+                            variable_dict[var_name] = var_obj
+                        else:
+                            # 気象変数：キーは "変数名_previous_term"
+                            var_obj = ForecastModelVariable.objects.get(name=var_name, previous_term=prev_term)
+                            variable_dict[f"{var_name}_{prev_term}"] = var_obj
                     except ForecastModelVariable.DoesNotExist:
-                        logger.warning("Variable not found: %s_%s", var_name, prev_term)
+                        logger.warning("Variable not found: %s (previous_term=%s, is_market=%s)", var_name, prev_term, is_market_var)
                 
                 # 定数項のための特別処理
                 const_var, _ = ForecastModelVariable.objects.get_or_create(
@@ -1041,14 +1211,29 @@ class ForecastOLSRunner:
                 ForecastModelCoef.objects.filter(model_version=model_version).delete()
                 
                 # 係数の作成
+                market_variables_local = ['prev_price', 'prev_volume', 'years_price', 'years_volume']
+                
                 for name in model.params.index:
                     if name == 'const':
                         variable = const_var
                         is_segment = True  # 🔥 定数項はis_segment=True
                     else:
-                        variable = variable_dict.get(name)
+                        # カラム名から正しいキーを生成
+                        var_key = None
+                        
+                        # 市場変数のキーを直接確認
+                        for mvar in market_variables_local:
+                            if name == mvar:
+                                var_key = mvar
+                                break
+                        
+                        # 市場変数でない場合は気象変数として扱う
+                        if var_key is None:
+                            var_key = name  # 気象変数は "variable_previous_term" 形式のまま
+                        
+                        variable = variable_dict.get(var_key)
                         if not variable:
-                            logger.warning("Could not find variable for coefficient: %s", name)
+                            logger.warning("Could not find variable for coefficient: %s (key=%s)", name, var_key)
                             continue
                         is_segment = False
                     
@@ -1114,7 +1299,7 @@ class ForecastOLSRunner:
                 ).first()
                 
                 if market:
-                    return market.average_price or market.source_price
+                    return market.source_price
                     
         except Exception as ex:
             logging.getLogger(__name__).warning("Error getting feature value for %s: %s", variable_name, ex)

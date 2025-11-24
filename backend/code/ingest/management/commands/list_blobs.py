@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from azure.storage.blob import BlobServiceClient
+from config.storage.azure_blob import get_blob_service_client
 import os
 
 class Command(BaseCommand):
@@ -19,8 +19,7 @@ class Command(BaseCommand):
         self.stdout.write(f"使用コンテナ: {container_name}")
         
         try:
-            bsc = BlobServiceClient.from_connection_string(conn_str)
-            container = bsc.get_container_client(container_name)
+            container = get_blob_service_client()
             
             # ローカルファイルのアップロード要求があれば処理
             if options['upload']:

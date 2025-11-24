@@ -1,19 +1,16 @@
 # app/management/commands/reset_azurite.py
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from azure.storage.blob import BlobServiceClient
+from config.storage.azure_blob import get_blob_service_client
 
 class Command(BaseCommand):
     help = "Delete and recreate Azurite container"
+    container_name = settings.AZURE_CONTAINER
 
-    def handle(self, *args, **options):
-        # Azuriteに接続
-        bsc = BlobServiceClient.from_connection_string(settings.AZURE_CONNECTION_STRING)
-        container_name = settings.AZURE_CONTAINER
-        
+    def handle(self, *args, **options):        
         try:
             # コンテナが存在する場合は削除
-            container_client = bsc.get_container_client(container_name)
+            container_client = get_blob_service_client()
             container_client.delete_container()
             self.stdout.write(self.style.SUCCESS(f"Deleted container: {container_name}"))
         except Exception as e:
@@ -21,7 +18,8 @@ class Command(BaseCommand):
         
         try:
             # コンテナを再作成
-            container_client = bsc.create_container(container_name)
+            container_client = get_blob_service_client()
+            container_client.create_container()
             self.stdout.write(self.style.SUCCESS(f"Created container: {container_name}"))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Failed to create container: {e}"))

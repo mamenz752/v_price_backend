@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect
 from django.views import View
 from django.views.generic import TemplateView
 from django.contrib import messages
-from azure.storage.blob import BlobServiceClient
+from config.storage.azure_blob import get_blob_service_client
 import csv
 from io import StringIO
 import traceback
@@ -13,18 +13,6 @@ import logging
 
 
 logger = logging.getLogger(__name__)
-
-def _container_client():
-    conn_str = settings.AZURE_CONNECTION_STRING
-    container_name = settings.AZURE_CONTAINER
-    
-    print(f"接続文字列: {conn_str[:20]}... (一部のみ表示)")
-    print(f"使用コンテナ: {container_name}")
-    
-    bsc = BlobServiceClient.from_connection_string(conn_str)
-    container = bsc.get_container_client(container_name)
-    return container
-
     
 class BlobListView(View):
     """
@@ -33,7 +21,7 @@ class BlobListView(View):
     """
     def get(self, request):
         try:
-            container = _container_client()
+            container = get_blob_service_client()
             blobs = []
             
             # 全BLOBを取得

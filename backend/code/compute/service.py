@@ -180,12 +180,49 @@ def aggregate_market_data() -> AggregationResult:
             "target_half": target_half,
             **aggregated,
         }
+
+        # 前年価格と入荷量を取得
+        target_last_year  = target_year - 1
+        prev_market = ComputeMarket.objects.filter(
+            vegetable_id=vegetable_id,
+            region_id=region_id,
+            target_year=target_last_year,
+            target_month=target_month,
+            target_half=target_half,
+        ).first()
+
+        prev_price = prev_market.source_price if prev_market else None
+        prev_volume = prev_market.volume if prev_market else None
+
+        # 過去3年分の同時期価格と入荷量の平均を取得
+        years_price_list = []
+        years_volume_list = []
+        for year_offset in range(1, 4):
+            past_market = ComputeMarket.objects.filter(
+                vegetable_id=vegetable_id,
+                region_id=region_id,
+                target_year=target_year - year_offset,
+                target_month=target_month,
+                target_half=target_half,
+            ).first()
+            if past_market:
+                if past_market.source_price is not None:
+                    years_price_list.append(past_market.source_price)
+                if past_market.volume is not None:
+                    years_volume_list.append(past_market.volume)
+        years_price = _mean(years_price_list) if years_price_list else None
+        years_volume = _mean(years_volume_list) if years_volume_list else None
+
         _, created = ComputeMarket.objects.update_or_create(
             vegetable_id=vegetable_id,
             region_id=region_id,
             target_year=target_year,
             target_month=target_month,
             target_half=target_half,
+            prev_price=prev_price,
+            prev_volume=prev_volume,
+            years_price=years_price,
+            years_volume=years_volume,
             defaults=defaults,
         )
         if created:

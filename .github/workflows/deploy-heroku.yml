@@ -16,20 +16,15 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # Heroku へ git push（buildpack デプロイ）
-      - name: Deploy to Heroku (buildpack)
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+      - name: Install Heroku CLI
         run: |
-          # Heroku リモートを追加（毎回上書きでもOK）
-          git remote remove heroku 2>/dev/null || true
-          git remote add heroku https://heroku:${HEROKU_API_KEY}@git.heroku.com/${HEROKU_APP_NAME}.git
+          curl https://cli-assets.heroku.com/install.sh | sh
 
-          # release ブランチを Heroku に push（Heroku 側も release を使う前提）
-          git push heroku HEAD:release -f
+      - uses: akhileshns/heroku-deploy@v3.14.15 # This is the action
+        with:
+          heroku_api_key: ${{secrets.HEROKU_API_KEY}}
+          heroku_app_name: ${{secrets.HEROKU_APP_NAME}} #Must be unique in Heroku
+          heroku_email: ${{secrets.HEROKU_EMAIL}}

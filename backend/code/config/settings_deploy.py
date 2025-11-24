@@ -178,11 +178,10 @@ STATIC_URL = '/static/'
 # Where collectstatic will place files for production
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Additional directories to search for static files during development.
-# Include a project-level 'static' directory (backend/code/static) if present.
-# Only add the directory if it exists to avoid warnings in Heroku deployment
-static_dir = os.path.join(BASE_DIR, 'static')
-STATICFILES_DIRS = [static_dir] if os.path.exists(static_dir) else []
+# DjangoはデフォルトでINSTALLED_APPSの各アプリ内のstatic/ディレクトリを自動検出します
+# reports/static/, ingest/static/ などは自動的に収集されます
+# 追加のディレクトリが必要な場合のみSTATICFILES_DIRSを使用します
+STATICFILES_DIRS = []
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage' 
 

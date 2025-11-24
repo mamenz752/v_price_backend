@@ -1,14 +1,8 @@
 from django.conf import settings
-from django.http import HttpResponse, Http404, JsonResponse
-from django.shortcuts import render, redirect
+from django.http import HttpResponse, JsonResponse
 from django.views import View
-from django.views.generic import TemplateView
-from django.contrib import messages
 from config.storage.azure_blob import get_blob_service_client
-import csv
-from io import StringIO
 import traceback
-import os
 import logging
 
 

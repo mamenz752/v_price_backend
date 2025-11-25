@@ -147,7 +147,7 @@ class Command(BaseCommand):
         for wv in weather_variables:
             for term in range(1, 25):
                 variable, created = ForecastModelVariable.objects.get_or_create(
-                    name=wv.name,
+                    name=wv,
                     defaults={
                         "previous_term": term,
                     }

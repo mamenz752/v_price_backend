@@ -1191,9 +1191,12 @@ class FileProcessor:
         新しいディレクトリ構造: weather/YYYY/MM/YYYY_MM_mid.csv
         """
         results = {}
+        is_azure_path = False
+        if os.getenv('AZURE_BLOB_AUTH_MODE') == 'sas':
+            is_azure_path = True
         
         # 環境変数が設定されていて、Azuriteを使用する場合
-        if hasattr(settings, 'AZURE_CONNECTION_STRING') and settings.AZURE_CONNECTION_STRING:
+        if (hasattr(settings, 'AZURE_CONNECTION_STRING') and settings.AZURE_CONNECTION_STRING) or is_azure_path:
             logger.info("Azuriteからの天気データインポートを開始します")
             
             # Azure Blobクライアント取得
@@ -1335,9 +1338,13 @@ class FileProcessor:
         新しいディレクトリ構造: price/YYYY/MM/YYYY-MM-DD.txt
         """
         results = {}
+        is_azure_path = False
+        if os.getenv('AZURE_BLOB_AUTH_MODE') == 'sas':
+            is_azure_path = True
+        
         
         # 環境変数が設定されていて、Azuriteを使用する場合
-        if hasattr(settings, 'AZURE_CONNECTION_STRING') and settings.AZURE_CONNECTION_STRING:
+        if (hasattr(settings, 'AZURE_CONNECTION_STRING') and settings.AZURE_CONNECTION_STRING) or is_azure_path:
             logger.info("Azuriteからの価格データインポートを開始します")
             
             # Azure Blobクライアント取得

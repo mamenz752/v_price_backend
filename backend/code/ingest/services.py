@@ -1383,7 +1383,8 @@ class FileProcessor:
                     
                     # フィルタリングしたBlobファイルを処理
                     for blob in price_files:
-                        blob_path = blob.name
+                        # 以下はもともとblob.nameでした
+                        blob_path = blob
                         logger.info(f"Azure Blobファイル処理: {blob_path}")
                         if ingestor.process_price_file_from_azure(blob_path):
                             # 保存成功した場合、野菜ごとのカウントを増やす

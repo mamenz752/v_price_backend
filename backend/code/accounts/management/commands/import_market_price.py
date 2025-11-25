@@ -10,7 +10,7 @@ class Command(BaseCommand):
         parser.add_argument('--base_dir', type=str, default=None, help='インポート元ディレクトリ（未指定ならsettingsから取得）')
 
     def handle(self, *args, **options):
-        base_dir = "data"
+        base_dir = "/"
         self.stdout.write(self.style.NOTICE(f'価格データのインポートを開始します...'))
         result = FileProcessor.process_all_price_data(base_dir=base_dir)
         self.stdout.write(self.style.SUCCESS('価格データのインポートが完了しました。'))

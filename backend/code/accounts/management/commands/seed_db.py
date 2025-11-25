@@ -148,9 +148,7 @@ class Command(BaseCommand):
             for term in range(1, 25):
                 variable, created = ForecastModelVariable.objects.get_or_create(
                     name=wv,
-                    defaults={
-                        "previous_term": term,
-                    }
+                    previous_term=term,
                 )
                 status = 'created' if created else 'already exists'
                 self.stdout.write(f'ForecastModelVariable: {wv} ({status})')

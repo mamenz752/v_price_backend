@@ -9,7 +9,7 @@ class Command(BaseCommand):
         parser.add_argument('--base_dir', type=str, default=None, help='インポート元ディレクトリ（未指定ならsettingsから取得）')
 
     def handle(self, *args, **options):
-        base_dir = "/"
+        base_dir = "data"
         self.stdout.write(self.style.NOTICE(f'天気データのインポートを開始します...'))
         result = FileProcessor.process_all_weather_data(base_dir=base_dir)
         self.stdout.write(self.style.SUCCESS('天気データのインポートが完了しました。'))

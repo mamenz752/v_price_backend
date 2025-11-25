@@ -153,4 +153,4 @@ class Command(BaseCommand):
                     }
                 )
                 status = 'created' if created else 'already exists'
-                self.stdout.write(f'ForecastModelVariable: {wv.name} ({status})')
+                self.stdout.write(f'ForecastModelVariable: {wv} ({status})')

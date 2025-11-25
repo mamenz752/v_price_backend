@@ -1367,7 +1367,10 @@ class FileProcessor:
                     logger.info(f"Azure Blob検索結果: プレフィックス={price_prefix}, ファイル数={len(blobs)}")
                     
                     # 価格データのパターンにマッチするものをフィルタリング（例: price/2019/01/2019-01-05.txt）
-                    price_files = [blob for blob in blobs if re.match(r'price/\d{4}/\d{2}/\d{4}-\d{2}-\d{2}\.txt', blob.name)]
+                    if is_azure_path:
+                        price_files = [blob for blob in blobs if re.match(r'\d{4}/\d{2}/\d{4}-\d{2}-\d{2}\.txt', blob.name)]
+                    else:
+                        price_files = [blob for blob in blobs if re.match(r'price/\d{4}/\d{2}/\d{4}-\d{2}-\d{2}\.txt', blob.name)]
                     logger.info(f"価格データファイル数（パターンマッチ後）: {len(price_files)}")
                     
                     # ファイル名に基づいて野菜ごとの処理をトラッキング

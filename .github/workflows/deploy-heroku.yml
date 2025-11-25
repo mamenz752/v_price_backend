@@ -14,18 +14,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  notify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Heroku CLI
+      - name: Notify deployment
         run: |
-          curl https://cli-assets.heroku.com/install.sh | sh
-
-      - name: Deploy to Heroku
-        uses: akhileshns/heroku-deploy@v3.14.15 # This is the action
-        with:
-          heroku_api_key: ${{secrets.HEROKU_API_KEY}}
-          heroku_app_name: ${{secrets.HEROKU_APP_NAME}} #Must be unique in Heroku
-          heroku_email: ${{secrets.HEROKU_EMAIL}}
+          echo "✅ Release branch updated - Heroku automatic deploy will trigger"
+          echo "Branch: release"
+          echo "Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"

@@ -99,8 +99,6 @@ function renderPredictPriceGraphConfig(combinedData) {
         return null;
     }
 
-    console.log('Combined Data:', combinedData);
-
     const labels = [];
     const allPrices = [];  // 実際価格と予測価格を統合
     const minPrices = [];
@@ -124,13 +122,6 @@ function renderPredictPriceGraphConfig(combinedData) {
             }
         });
     }
-
-    console.log('Processed Combined Data:', {
-        labels: labels,
-        prices: allPrices,
-        minPrices: minPrices,
-        maxPrices: maxPrices
-    });
 
     const cfg = {
         type: 'line',
@@ -234,8 +225,6 @@ function renderSeasonPriceGraphConfig(seasonData) {
         return null;
     }
 
-    console.log('Season Data:', seasonData);
-
     const labels = [];
     const currentSeasonPrices = [];
     const lastSeasonPrices = [];
@@ -265,13 +254,6 @@ function renderSeasonPriceGraphConfig(seasonData) {
 
     // データをそのまま使用（既にソート済み）
     const chartLabels = labels;
-
-    console.log('Processed Data:', {
-        labels: chartLabels,
-        currentSeason: currentSeasonPrices,
-        lastSeason: lastSeasonPrices,
-        fiveYearAvg: fiveYearAvgPrices
-    });
 
     const cfg = {
         data: {

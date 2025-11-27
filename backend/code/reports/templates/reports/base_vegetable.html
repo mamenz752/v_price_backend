@@ -449,7 +449,6 @@
     const pred_data = JSON.parse('{{ prediction_data|default:"[]"|escapejs }}');
     const s_data = JSON.parse('{{ season_price_data|default:"[]"|escapejs }}');
     const y_data = JSON.parse('{{ year_price_data|default:"[]"|escapejs }}');
-    console.log('Prediction data:', pred_data);
 
     // Render charts
     const r_ctx = document.getElementById('recently-price-graph-plot');

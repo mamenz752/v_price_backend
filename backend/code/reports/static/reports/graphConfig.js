@@ -208,10 +208,6 @@ function renderPredictPriceGraphConfig(combinedData) {
                     }
                 }
             },
-            // interaction: {
-            //     mode: 'index',
-            //     intersect: false,
-            // }
         }
     };
     

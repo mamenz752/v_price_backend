@@ -64,8 +64,8 @@ function renderRecentlyPriceGraphConfig(twoWeekData) {
             ]
         },
         options: {
-            // responsive: true,
-            // maintainAspectRatio: false,
+            responsive: true,
+            maintainAspectRatio: false,
             scales: {
                 x: { title: { display: true, text: '日付' } },
                 y_volume: {

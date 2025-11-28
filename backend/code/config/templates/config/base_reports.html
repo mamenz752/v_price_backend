@@ -20,33 +20,39 @@
                         <a href="{% url 'reports:index' %}" class="navbar-brand text-decoration-none">野菜価格予測システム</a>
                     </h1>
                 </div>
-                <!-- <nav>
-                    <button class="navbar-toggler bg-dark" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+                <nav>
+                    <button class="navbar-toggler bg-dark" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar" aria-label="Toggle navigation">
                         <span class="navbar-toggler-icon"></span>
                     </button>
-                    <div class="collapse navbar-collapse" id="navbarContent">
-                        <ul class="navbar-nav ms-auto">
-                            <li class="nav-item">
-                                <a class="nav-link text-white" href="{% url 'reports:index' %}">トップ</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-white" href="{% url 'reports:chinese_cabbage' %}">はくさい</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-white" href="{% url 'reports:cabbage' %}">キャベツ</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-white" href="{% url 'reports:cucumber' %}">きゅうり</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-white" href="{% url 'reports:eggplant' %}">なす</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-white" href="{% url 'reports:radish' %}">だいこん</a>
-                            </li>
-                        </ul>
+                    <div class="offcanvas offcanvas-end text-bg-dark" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
+                        <div class="offcanvas-header">
+                            <h5 class="offcanvas-title" id="offcanvasNavbarLabel">メニュー</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                        </div>
+                        <div class="offcanvas-body">
+                            <ul class="navbar-nav justify-content-end flex-grow-1 pe-3">
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="{% url 'reports:index' %}">トップ</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="{% url 'reports:chinese_cabbage' %}">はくさい</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="{% url 'reports:cabbage' %}">キャベツ</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="{% url 'reports:cucumber' %}">きゅうり</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="{% url 'reports:eggplant' %}">なす</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-white" href="{% url 'reports:radish' %}">だいこん</a>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
-                </nav> -->
+                </nav>
             </div>
         </nav>
     </header>

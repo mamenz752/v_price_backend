@@ -6,8 +6,8 @@
 <main>
     <div class="container">
         <h2>{{ vegetable_name }}</h2>
-        <section class="prediction-summary d-flex gap-4 mb-4">
-            <div class="card w-50">
+        <section class="prediction-summary d-flex flex-column flex-lg-row gap-4 mb-4">
+            <div class="card w-100">
                 <div class="card-header text-center">
                     <h5 class="card-subtitle my-2">
                         {{ display_date }}の価格予測（/kg）
@@ -32,7 +32,7 @@
                     </div>
                 </div>
             </div>
-            <div class="card w-50">
+            <div class="card w-100">
                 <div class="card-header text-center">
                     <h5 class="card-subtitle my-2">
                         {{ display_date }}の価格見通し
@@ -46,8 +46,8 @@
 
         <section class="yesterday-market-summary">
             <h3>前市集計表（{{ recent_date|date:"Y/m/d" }}）</h3>
-            <div class="card-summary d-flex gap-4 mb-4">
-                <div class="card w-50">
+            <div class="card-summary d-flex flex-column flex-lg-row gap-4 mb-4">
+                <div class="card w-100">
                     <div class="card-header text-center">
                         <h5 class="card-subtitle my-2">
                             価格（/kg）
@@ -57,7 +57,7 @@
                         <h5 class="card-title m-0">{{ source_price }}<span class="text-sm">円</span></h5>
                     </div>
                 </div>
-                <div class="card w-50">
+                <div class="card w-100">
                     <div class="card-header text-center">
                         <h5 class="card-subtitle my-2">
                             前市比
@@ -106,7 +106,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="card w-50">
+                <div class="card w-100">
                     <div class="card-header text-center">
                         <h5 class="card-subtitle my-2">
                             入荷量
@@ -127,43 +127,68 @@
                 <div class="recently-price-graph-plot d-flex justify-content-center">
                     <canvas
                     id="recently-price-graph-plot"
-                    style="height: 400px; margin: 0 auto;"
+                    class="chart-canvas"
                     ></canvas>
                 </div>
             </div>
             <div class="container mt-4">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th scope="col" style="min-width: 100px;">項目</th>
-                                {% for item in markets %}
-                                <th scope="col" class="text-center" style="min-width: 60px;">{{ item.target_date|date:"m/d" }}</th>
-                                {% endfor %}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <th scope="row">価格（円/kg）</th>
-                                {% for item in markets %}
-                                <td class="text-end">{{ item.source_price|default:"-"|floatformat:0|intcomma }}</td>
-                                {% endfor %}
-                            </tr>
-                            <tr>
-                                <th scope="row">入荷量（t）</th>
-                                {% for item in markets %}
-                                <td class="text-end">{{ item.volume|default:"-"|floatformat:2|intcomma }}</td>
-                                {% endfor %}
-                            </tr>
-                        </tbody>
-                    </table>
+                <!-- For large screens -->
+                <div class="d-none d-lg-block">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col" style="min-width: 100px;">項目</th>
+                                    {% for item in markets|slice:"::-1" %}
+                                    <th scope="col" class="text-center" style="min-width: 60px;">{{ item.target_date|date:"m/d" }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <th scope="row">価格（円/kg）</th>
+                                    {% for item in markets|slice:"::-1" %}
+                                    <td class="text-end">{{ item.source_price|default:"-"|floatformat:0|intcomma }}</td>
+                                    {% endfor %}
+                                </tr>
+                                <tr>
+                                    <th scope="row">入荷量（t）</th>
+                                    {% for item in markets|slice:"::-1" %}
+                                    <td class="text-end">{{ item.volume|default:"-"|floatformat:2|intcomma }}</td>
+                                    {% endfor %}
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- For small screens -->
+                <div class="d-lg-none">
+                    {% for item in markets|slice:"::-1" %}
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            {{ item.target_date|date:"Y/m/d" }}
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>価格（円/kg）</span>
+                                <span class="text-end fw-bold">{{ item.source_price|default:"-"|floatformat:0|intcomma }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>入荷量（t）</span>
+                                <span class="text-end fw-bold">{{ item.volume|default:"-"|floatformat:2|intcomma }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted">データがありません</div>
+                    {% endfor %}
                 </div>
             </div>
         </section>
 
          <section class="statistics-market-summary">
-            <div class="card-summary d-flex gap-4 mb-4">
-                <div class="card w-50">
+            <div class="card-summary d-flex flex-column flex-lg-row gap-4 mb-4">
+                <div class="card w-100">
                     <div class="card-header text-center">
                         <h5 class="card-subtitle my-2">
                             前年比
@@ -212,7 +237,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="card w-50">
+                <div class="card w-100">
                     <div class="card-header text-center">
                         <h5 class="card-subtitle my-2">
                             前々年比
@@ -261,7 +286,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="card w-50">
+                <div class="card w-100">
                     <div class="card-header text-center">
                         <h5 class="card-subtitle my-2">
                             平年比
@@ -299,7 +324,7 @@
                                     {% if avg_diff > 0 %}
                                         <span class="fs-5 fw-black text-danger">↑</span>
                                     {% elif avg_diff < 0 %}
-                                        <span class="fs-5 fw-black text-primary">↓</span>
+                                       <span class="fs-5 fw-black text-primary">↓</span>
                                     {% else %}
                                         <span class="fs-5 fw-black text-secondary">→</span>
                                     {% endif %}
@@ -315,16 +340,14 @@
         
         <section class="predict-price-graph">
             <h4 class="contents-header">{{ vegetable_name }}の価格予測傾向</h4>
-            <!-- TODO: ここにグラフ作成 -->
             <div class="container">
                 <div class="predict-price-graph-plot d-flex justify-content-center">
                     <canvas
                     id="predict-price-graph-plot"
-                    style="height: 400px; margin: 0 auto;"
+                    class="chart-canvas"
                     ></canvas>
                 </div>
             </div>
-            <!-- 予測価格表 -->
             <div class="container mt-4">
                 <div class="table-responsive">
                     <table class="table table-hover">
@@ -350,7 +373,7 @@
                 <div class="season-price-graph-plot d-flex justify-content-center">
                     <canvas
                     id="season-price-graph-plot"
-                    style="height: 400px; margin: 0 auto;"
+                    class="chart-canvas"
                     ></canvas>
                 </div>
             </div>
@@ -396,7 +419,7 @@
                 <div class="year-price-graph-plot d-flex justify-content-center">
                     <canvas
                     id="year-price-graph-plot"
-                    style="height: 400px; margin: 0 auto;"
+                    class="chart-canvas"
                     ></canvas>
                 </div>
             </div>
@@ -408,6 +431,11 @@
 {% block head %}
 {{ block.super }}
 <style>
+    @media (min-width: 992px) {
+        .chart-canvas {
+            height: 300px !important;
+        }
+    }
     .table-responsive {
         overflow-x: auto;
     }
@@ -449,7 +477,6 @@
     const pred_data = JSON.parse('{{ prediction_data|default:"[]"|escapejs }}');
     const s_data = JSON.parse('{{ season_price_data|default:"[]"|escapejs }}');
     const y_data = JSON.parse('{{ year_price_data|default:"[]"|escapejs }}');
-    console.log('Prediction data:', pred_data);
 
     // Render charts
     const r_ctx = document.getElementById('recently-price-graph-plot');

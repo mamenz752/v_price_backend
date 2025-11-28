@@ -1,5 +1,7 @@
 # 野菜価格データ分析システム (v_price_backend)
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mamenz752/v_price_backend)
+
 ## 概要
 
 このシステムは野菜の価格データと気象データを取り込み、分析するためのDjangoアプリケーションです。
@@ -212,3 +214,23 @@ docker compose exec web grep "2025-11-02 20:45" /code/logs/django.log || true
 - ログが出ない・302 リダイレクトだけ起きる場合は、未認証（ログインが必要で /accounts/login/ にリダイレクト）やビューが即時リダイレクトしている可能性があります。上のログで Location ヘッダや Django の INFO ログを確認してください。
 
 詳細なモデル実行フローと調査手順は `docs/forecast_execution.md` を参照してください。
+
+### 新規アプリデプロイ
+
+- 前提となるSeed
+
+```herokucli
+heroku run cd backend/code && python manage.py seed_db
+```
+
+- 価格データインポート
+
+```herokucli
+heroku run cd backend/code && python manage.py import_market_price
+```
+
+- 気象データインポート
+
+```herokucli
+heroku run cd backend/code && python manage.py import_weather_data
+```
